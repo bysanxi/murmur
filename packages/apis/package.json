@@ -1,0 +1,32 @@
+{
+  "name": "@deskulpt-test/apis",
+  "version": "0.0.14",
+  "description": "Deskulpt widget APIs.",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "prepublishOnly": "pnpm build",
+    "build": "tsdown"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deskulpt-apps/Deskulpt.git"
+  },
+  "author": "The Deskulpt Development Team",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/deskulpt-apps/Deskulpt/issues"
+  },
+  "homepage": "https://deskulpt-apps.github.io/",
+  "dependencies": {
+    "@tauri-apps/api": "catalog:"
+  },
+  "devDependencies": {
+    "rolldown": "catalog:",
+    "tsdown": "catalog:"
+  }
+}

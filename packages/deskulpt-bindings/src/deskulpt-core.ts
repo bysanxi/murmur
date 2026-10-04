@@ -1,0 +1,134 @@
+/*! Auto-generated via `cargo xtask bindings`. DO NOT EDIT! */
+
+import { invoke } from "@tauri-apps/api/core";
+import * as TauriEvent from "@tauri-apps/api/event";
+
+// =============================================================================
+// Types
+// =============================================================================
+
+/**
+ * Deskulpt window enum.
+ */
+export type DeskulptWindow = 
+/**
+ * Deskulpt portal.
+ */
+"portal" | 
+/**
+ * Deskulpt canvas.
+ */
+"canvas"
+
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
+
+/**
+ * The target to open.
+ */
+export type OpenTarget = 
+/**
+ * The widgets base directory.
+ */
+"widgets" | 
+/**
+ * A specific widget directory by its ID.
+ */
+{ widget: string } | 
+/**
+ * The persisted settings file.
+ */
+"settings" | 
+/**
+ * The logs directory.
+ */
+"logs"
+
+/**
+ * Event for showing a toast notification.
+ * 
+ * This event is emitted from the backend to the canvas when a toast
+ * notification needs to be displayed.
+ */
+export type ShowToastEvent = 
+/**
+ * Show a [success](https://sonner.emilkowal.ski/toast#success) toast.
+ */
+{ type: "success"; content: string } | 
+/**
+ * Show an [error](https://sonner.emilkowal.ski/toast#error) toast.
+ */
+{ type: "error"; content: string }
+
+// =============================================================================
+// Events
+// =============================================================================
+
+function makeEvent<T>(name: string) {
+  return {
+    /** The name of the event. */
+    name,
+    /** Listen for the event. */
+    listen: (cb: TauriEvent.EventCallback<T>, options?: TauriEvent.Options) =>
+      TauriEvent.listen(name, cb, options),
+    /** Listen once for the event. */
+    once: (cb: TauriEvent.EventCallback<T>, options?: TauriEvent.Options) =>
+      TauriEvent.once(name, cb, options),
+    /** Emit the event to all targets. */
+    emit: (payload: T) => TauriEvent.emit(name, payload),
+    /** Emit the event to a specific Deskulpt window. */
+    emitTo: (window: DeskulptWindow, payload: T) =>
+      TauriEvent.emitTo(window, name, payload),
+  };
+}
+
+export namespace Events {
+  export const showToast = makeEvent<ShowToastEvent>("deskulpt-core://show-toast");
+}
+
+// =============================================================================
+// Commands
+// =============================================================================
+
+export namespace Commands {
+  /**
+   * Call a plugin command (🚧 TODO 🚧).
+   * 
+   * ### 🚧 TODO 🚧
+   * 
+   * The Deskulpt core should keep a state of the registered plugins and call the
+   * plugins dynamically. Also, instead of invoking the plugins directly, the
+   * Deskulpt core should not depend on any of the plugins and should use IPC to
+   * communicate with the plugins.
+   * 
+   * Also, in order to simplify the engine API for the plugin (because it is
+   * a temporary implementation), `app_handle` is using the default runtime but
+   * it should be a generic `R: Runtime` parameter in the final implementation.
+   */
+  export const callPlugin = (
+    plugin: string,
+    command: string,
+    id: string,
+    payload: JsonValue | null,
+  ) => invoke<JsonValue>("plugin:deskulpt-core|call_plugin", {
+    plugin,
+    command,
+    id,
+    payload,
+  });
+
+  /**
+   * Open a specified target with the system's default application.
+   * 
+   * See [`OpenTarget`] for more details.
+   * 
+   * ### Errors
+   * 
+   * - Error accessing the specified target.
+   * - Error opening the target.
+   */
+  export const open = (
+    target: OpenTarget,
+  ) => invoke<null>("plugin:deskulpt-core|open", {
+    target,
+  });
+}

@@ -1,0 +1,2 @@
+/*! Auto-generated from packages/apis. DO NOT EDIT! */
+import e from"__RAW_APIS_URL__";function t(e,t){let n={};for(let r in t){n[r]={};let i=t[r];for(let t in i){let a=i[t];typeof a==`function`&&(n[r][t]=(...t)=>a(e,...t))}}return n}var n=t(`__DESKULPT_WIDGET_ID__`,e);export{n as default};

@@ -1,0 +1,33 @@
+{
+  "name": "@deskulpt-test/react",
+  "version": "0.0.6",
+  "description": "Deskulpt partial re-export of React.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "prepublishOnly": "pnpm build",
+    "build": "tsdown"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deskulpt-apps/Deskulpt.git"
+  },
+  "author": "The Deskulpt Development Team",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/deskulpt-apps/Deskulpt/issues"
+  },
+  "homepage": "https://deskulpt-apps.github.io/",
+  "devDependencies": {
+    "tsdown": "catalog:"
+  },
+  "peerDependencies": {
+    "@types/react": "catalog:",
+    "react": "catalog:"
+  }
+}

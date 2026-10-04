@@ -1,0 +1,27 @@
+[package]
+description = "murmur, a quiet desktop companion."
+name        = "deskulpt"
+
+authors    = { workspace = true }
+edition    = { workspace = true }
+homepage   = { workspace = true }
+license    = { workspace = true }
+repository = { workspace = true }
+version    = { workspace = true }
+
+[dependencies]
+tauri                          = { workspace = true, features = ["macos-private-api"] }
+tauri-plugin-clipboard-manager = { workspace = true }
+tauri-plugin-deskulpt-core     = { workspace = true }
+tauri-plugin-deskulpt-logs     = { workspace = true }
+tauri-plugin-deskulpt-settings = { workspace = true }
+tauri-plugin-deskulpt-widgets  = { workspace = true }
+tauri-plugin-global-shortcut   = { workspace = true }
+tauri-plugin-opener            = { workspace = true }
+tracing                        = { workspace = true }
+
+[build-dependencies]
+tauri-build = { workspace = true, features = ["codegen"] }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--document-private-items"]

@@ -1,0 +1,63 @@
+{
+  "name": "workspace",
+  "private": true,
+  "version": "0.3.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "prepare": "husky",
+    "tauri": "tauri",
+    "format": "pnpm format:js && pnpm format:rs",
+    "format:check": "pnpm format:js:check && pnpm format:rs:check",
+    "format:js": "prettier --write .",
+    "format:js:check": "prettier --check .",
+    "format:rs": "cargo +nightly fmt",
+    "format:rs:check": "cargo +nightly fmt -- --check",
+    "lint": "pnpm lint:js && pnpm lint:rs",
+    "lint:check": "pnpm lint:js:check && pnpm lint:rs:check",
+    "lint:js": "oxlint --max-warnings=0 --fix .",
+    "lint:js:check": "oxlint --max-warnings=0 .",
+    "lint:rs": "cargo clippy --fix --allow-dirty --allow-staged -- -D warnings",
+    "lint:rs:check": "cargo clippy -- -D warnings",
+    "test": "pnpm test:js && pnpm test:rs",
+    "test:js": "echo \"Frontend test suite not implemented yet.\"",
+    "test:rs": "cargo test-workspace",
+    "docs:rs": "cargo +nightly doc-workspace",
+    "check:js": "tsc -b",
+    "dev:js": "vite dev",
+    "build:js": "pnpm check:js && vite build",
+    "build:packages": "pnpm run --sequential --filter @deskulpt-test/* build"
+  },
+  "dependencies": {
+    "@emotion/react": "catalog:",
+    "@radix-ui/themes": "catalog:",
+    "@tauri-apps/api": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "husky": "catalog:",
+    "knip": "catalog:",
+    "lint-staged": "catalog:",
+    "oxlint": "catalog:",
+    "prettier": "catalog:",
+    "prettier-plugin-toml": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-toml"
+    ],
+    "alignEntries": true,
+    "reorderKeys": true
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,md,mdx,html,css,scss,yml,yaml,toml}": "prettier --write",
+    "*.{js,jsx,ts,tsx}": "oxlint --fix",
+    "*.rs": "rustfmt +nightly --"
+  }
+}

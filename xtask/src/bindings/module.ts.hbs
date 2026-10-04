@@ -1,0 +1,73 @@
+/*! Auto-generated via `cargo xtask bindings`. DO NOT EDIT! */
+
+{{#if commands}}
+import { invoke } from "@tauri-apps/api/core";
+{{/if}}
+{{#if events}}
+import * as TauriEvent from "@tauri-apps/api/event";
+{{/if}}
+
+// =============================================================================
+// Types
+// =============================================================================
+
+{{#each types}}
+{{this}}
+{{#unless @last}}
+
+{{/unless}}
+{{/each}}
+
+{{#if events}}
+// =============================================================================
+// Events
+// =============================================================================
+
+function makeEvent<T>(name: string) {
+  return {
+    /** The name of the event. */
+    name,
+    /** Listen for the event. */
+    listen: (cb: TauriEvent.EventCallback<T>, options?: TauriEvent.Options) =>
+      TauriEvent.listen(name, cb, options),
+    /** Listen once for the event. */
+    once: (cb: TauriEvent.EventCallback<T>, options?: TauriEvent.Options) =>
+      TauriEvent.once(name, cb, options),
+    /** Emit the event to all targets. */
+    emit: (payload: T) => TauriEvent.emit(name, payload),
+    /** Emit the event to a specific Deskulpt window. */
+    emitTo: (window: DeskulptWindow, payload: T) =>
+      TauriEvent.emitTo(window, name, payload),
+  };
+}
+
+export namespace Events {
+{{#each events}}
+  export const {{this.key}} = makeEvent<{{this.ty}}>("{{this.name}}");
+{{/each}}
+}
+{{/if}}
+
+{{#if commands}}
+// =============================================================================
+// Commands
+// =============================================================================
+
+export namespace Commands {
+{{#each commands}}
+{{indent this.doc 2}}
+  export const {{this.key}} = ({{#if this.args}}
+{{#each this.args}}
+    {{this.name}}: {{this.ty}},
+{{/each}}
+  {{/if}}) => invoke<{{this.ret_ty}}>("plugin:{{../module}}|{{this.name}}"{{#if this.args}}, {
+{{#each this.args}}
+    {{this.name}},
+{{/each}}
+  }{{/if}});
+{{#unless @last}}
+
+{{/unless}}
+{{/each}}
+}
+{{/if}}

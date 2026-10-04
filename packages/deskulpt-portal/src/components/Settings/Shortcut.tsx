@@ -1,0 +1,179 @@
+import {
+  Button,
+  Flex,
+  IconButton,
+  Kbd,
+  Popover,
+  Text,
+  TextField,
+} from "@radix-ui/themes";
+import { KeyboardEvent as ReactKeyboardEvent, useRef, useState } from "react";
+import { LuSquarePen, LuTrash } from "react-icons/lu";
+import { DeskulptSettings } from "@deskulpt/bindings";
+import { useSettingsStore } from "../../hooks";
+import { toast } from "sonner";
+import { INVALID_KEYCODES, KEYCODES, MODIFIERS } from "./keyboard";
+import { css } from "@emotion/react";
+import { useTranslation } from "@deskulpt/utils";
+
+const styles = {
+  input: css({
+    width: "240px",
+    fontSize: "var(--font-size-2)",
+    paddingLeft: "var(--space-1)",
+    "> input": { cursor: "text" },
+    "--text-field-focus-color": "var(--accent-8)",
+  }),
+  inputInvalid: css({ "--text-field-focus-color": "var(--red-8)" }),
+};
+
+interface Props {
+  action: DeskulptSettings.ShortcutAction;
+}
+
+const ShortcutAction = ({ action }: Props) => {
+  const { t } = useTranslation();
+  const shortcut = useSettingsStore((state) => state.shortcuts[action]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [value, setValue] = useState(shortcut ?? "");
+  const [placeholder, setPlaceholder] = useState(
+    t("shortcut.disabledPlaceholder"),
+  );
+  const [isValid, setIsValid] = useState(true);
+
+  const handleFocus = () => {
+    setPlaceholder(t("shortcut.pressPlaceholder"));
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      // Reset states on popover open
+      setValue(shortcut ?? "");
+      setPlaceholder(t("shortcut.disabledPlaceholder"));
+      setIsValid(true);
+    }
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent) => {
+    if (event.key === "Tab" || event.repeat) {
+      // Ignore key repeats for performance; ignore tab key for keyboard
+      // accessibility, i.e., on should be able to use it to navigate to the
+      // close and confirm buttons instead of being trapped in the input field
+      return;
+    }
+    event.preventDefault();
+
+    const keys = [];
+    let localHasKey = false;
+    let localHasModifier = false;
+
+    // Check for modifier keys
+    if (event.metaKey) {
+      keys.push(MODIFIERS.Meta);
+      localHasModifier = true;
+    }
+    if (event.ctrlKey) {
+      keys.push(MODIFIERS.Ctrl);
+      localHasModifier = true;
+    }
+    if (event.shiftKey) {
+      keys.push(MODIFIERS.Shift);
+      localHasModifier = true;
+    }
+    if (event.altKey) {
+      keys.push(MODIFIERS.Alt);
+      localHasModifier = true;
+    }
+
+    // Only include non-modifier keys as the final main key of the shortcut
+    if (event.code in KEYCODES) {
+      keys.push(KEYCODES[event.code as keyof typeof KEYCODES]);
+      localHasKey = true;
+    } else if (event.code in INVALID_KEYCODES) {
+      keys.push(INVALID_KEYCODES[event.code as keyof typeof INVALID_KEYCODES]);
+    }
+
+    setValue(keys.join(" + "));
+    setIsValid(localHasKey && localHasModifier);
+  };
+
+  const confirmAction = () => {
+    DeskulptSettings.Commands.update({
+      shortcuts: { [action]: value === "" ? null : value },
+    })
+      .then(() => {
+        setPlaceholder(t("shortcut.disabledPlaceholder"));
+        setIsValid(true);
+        toast.success(t("shortcut.updated"));
+      })
+      .catch(() => {
+        toast.error(t("shortcut.updateFailed"));
+      });
+  };
+
+  const clearAction = () => {
+    if (inputRef.current === null) {
+      setPlaceholder(t("shortcut.disabledPlaceholder"));
+    } else {
+      inputRef.current.focus();
+    }
+    setValue("");
+    setIsValid(true);
+  };
+
+  return (
+    <Flex align="center" justify="end" gap="4">
+      {shortcut === undefined ? (
+        <Text color="gray">{t("shortcut.disabled")}</Text>
+      ) : (
+        <Kbd size="3">{shortcut}</Kbd>
+      )}
+      <Popover.Root onOpenChange={handleOpenChange}>
+        <Popover.Trigger>
+          <Button size="1" variant="surface">
+            <LuSquarePen /> {t("actions.edit")}
+          </Button>
+        </Popover.Trigger>
+        <Popover.Content size="1" width="400px">
+          <Text size="2" as="div" mb="3">
+            {t("shortcut.hint")}
+          </Text>
+          <Flex gap="3" align="center">
+            <TextField.Root
+              ref={inputRef}
+              size="1"
+              variant="surface"
+              readOnly
+              value={value}
+              placeholder={placeholder}
+              onFocus={handleFocus}
+              onKeyDown={handleKeyDown}
+              css={[styles.input, !isValid && styles.inputInvalid]}
+            >
+              <TextField.Slot side="right">
+                <IconButton
+                  size="1"
+                  variant="ghost"
+                  disabled={value === ""}
+                  onClick={clearAction}
+                >
+                  <LuTrash size={15} />
+                </IconButton>
+              </TextField.Slot>
+            </TextField.Root>
+            {isValid && (shortcut ?? "") !== value && (
+              <Popover.Close>
+                <Button size="1" variant="surface" onClick={confirmAction}>
+                  {value === "" ? t("actions.disable") : t("actions.confirm")}
+                </Button>
+              </Popover.Close>
+            )}
+          </Flex>
+        </Popover.Content>
+      </Popover.Root>
+    </Flex>
+  );
+};
+
+export default ShortcutAction;

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreIssues": {
+    "packages/apis/src/fs.ts": ["exports"],
+    "packages/apis/src/sys.ts": ["exports"],
+    "packages/deskulpt-bindings/src/deskulpt-core.ts": ["namespaceMembers"]
+  },
+  "workspaces": {
+    ".": {
+      "project": [],
+      "entry": ["gen/*"],
+      "ignoreBinaries": ["rustfmt", "only-allow"]
+    }
+  }
+}

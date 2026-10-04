@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "portal-capabilities",
+  "description": "Capabilities of Deskulpt portal.",
+  "windows": ["portal"],
+  "permissions": [
+    "deskulpt-core:allow-open",
+    "deskulpt-logs:allow-clear",
+    "deskulpt-logs:allow-read",
+    "deskulpt-logs:allow-log",
+    "deskulpt-settings:allow-update",
+    "deskulpt-widgets:allow-fetch-registry-index",
+    "deskulpt-widgets:allow-install",
+    "deskulpt-widgets:allow-preview",
+    "deskulpt-widgets:allow-refresh",
+    "deskulpt-widgets:allow-refresh-all",
+    "deskulpt-widgets:allow-reload-all",
+    "deskulpt-widgets:allow-uninstall",
+    "deskulpt-widgets:allow-update-settings",
+    "deskulpt-widgets:allow-upgrade",
+    "core:event:default",
+    "clipboard-manager:allow-write-text",
+    "opener:allow-open-url",
+    "opener:allow-default-urls"
+  ]
+}

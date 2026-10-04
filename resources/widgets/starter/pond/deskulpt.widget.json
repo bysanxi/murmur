@@ -1,0 +1,13 @@
+{
+  "name": "三息之间",
+  "version": "0.1.0",
+  "authors": ["hiudong"],
+  "license": "MIT",
+  "description": "A quiet pond on the desktop. The light changes with the time of day.",
+  "entry": "index.jsx",
+  "x": 0,
+  "y": 0,
+  "width": 3840,
+  "height": 2160,
+  "zIndex": -1
+}

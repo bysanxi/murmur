@@ -1,0 +1,28 @@
+[package]
+name    = "xtask"
+publish = false
+
+authors    = { workspace = true }
+edition    = { workspace = true }
+homepage   = { workspace = true }
+license    = { workspace = true }
+repository = { workspace = true }
+version    = { workspace = true }
+
+[dependencies]
+anyhow                         = { workspace = true }
+clap                           = { workspace = true, features = ["derive"] }
+deskulpt-common                = { workspace = true }
+deskulpt-workspace             = { workspace = true }
+handlebars                     = { workspace = true }
+heck                           = { workspace = true }
+regex                          = { workspace = true }
+schemars                       = { workspace = true }
+serde                          = { workspace = true, features = ["derive"] }
+serde_json                     = { workspace = true }
+specta                         = { workspace = true }
+specta-typescript              = { workspace = true }
+tauri-plugin-deskulpt-core     = { workspace = true }
+tauri-plugin-deskulpt-logs     = { workspace = true }
+tauri-plugin-deskulpt-settings = { workspace = true }
+tauri-plugin-deskulpt-widgets  = { workspace = true }

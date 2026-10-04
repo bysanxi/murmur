@@ -1,0 +1,11 @@
+.idea
+.DS_Store
+*.local
+
+node_modules/
+target/
+dist/
+
+# Generated files
+crates/deskulpt/gen/
+crates/tauri-plugin-deskulpt-*/permissions/

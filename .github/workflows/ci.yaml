@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-commit-markers:
+    runs-on: ubuntu-latest
+    outputs:
+      ci-build-marker: ${{ steps.check-commit-markers.outputs.ci-build-marker }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Check commit markers
+        id: check-commit-markers
+        shell: bash
+        run: |
+          commit_message=$(git log -1 --pretty=%B)
+          echo "::group::Commit message"
+          echo "$commit_message"
+          echo "::endgroup::"
+
+          echo "::group::Commit markers"
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "ci-build-marker=true: triggered by ${{ github.event_name }}"
+            echo "ci-build-marker=true" >> $GITHUB_OUTPUT
+          elif [[ "$commit_message" =~ \[ci-build\] ]]; then
+            echo "ci-build-marker=true: [ci-build] marker detected in commit message"
+            echo "ci-build-marker=true" >> $GITHUB_OUTPUT
+          else
+            echo "ci-build-marker=false"
+            echo "ci-build-marker=false" >> $GITHUB_OUTPUT
+          fi
+          echo "::endgroup::"
+
+  ci-hygiene:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          platform: ubuntu-latest
+          cache-key: debug
+          nightly-components: rustfmt
+          tools: cargo-shear
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Check unused Node dependencies, exports, and files
+        run: pnpm knip
+
+      - name: Check unused Rust dependencies
+        run: cargo shear
+
+      - name: Check that auto-generated files are up-to-date
+        shell: bash
+        run: |
+          # Re-generate auto-generated files
+          pnpm build:packages
+          cargo xtask bindings
+          cargo xtask schema
+
+          # Check that there are no uncommitted changes
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Auto-generated files are out of date"
+            echo "::group::Diff of auto-generated files"
+            git status --porcelain
+            echo
+            git --no-pager diff || true
+            echo "::endgroup::"
+            echo "To fix this issue, run the following commands and commit the changes:"
+            echo "  pnpm build:packages"
+            echo "  cargo xtask bindings"
+            echo "  cargo xtask schema"
+            exit 1
+          fi
+
+  ci-verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          platform: ${{ matrix.platform }}
+          cache-key: debug
+          components: clippy
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Check linting
+        run: pnpm lint:check
+
+      # We do not use Tauri CLI here because it adds the tauri/custom-protocol
+      # feature flag which causes cache misses and longer build times; instead,
+      # a plain `cargo build` is sufficient for CI verification
+      - name: Check build
+        run: |
+          pnpm build:js
+          cargo build --bin deskulpt
+
+      - name: Check tests
+        env:
+          RUST_BACKTRACE: 1
+        run: pnpm test
+
+  ci-build:
+    needs: [ci-commit-markers]
+    if: needs.ci-commit-markers.outputs.ci-build-marker == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          platform: ${{ matrix.platform }}
+          targets: ${{ matrix.target }}
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Build Deskulpt
+        id: build-deskulpt
+        uses: tauri-apps/tauri-action@v0
+        with:
+          args: --target ${{ matrix.target }}
+
+      - name: Upload build artifacts
+        id: upload-artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: binaries-${{ matrix.platform }}-${{ matrix.target }}
+          path: "${{ join(fromJSON(steps.build-deskulpt.outputs.artifactPaths), '\n') }}"
+
+  ci-conclude:
+    needs: [ci-hygiene, ci-verify]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Conclude
+        shell: bash
+        run: echo "✅ CI pipeline completed successfully!"
