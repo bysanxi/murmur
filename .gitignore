@@ -1,10 +1,26 @@
 .idea
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 *.local
 
 node_modules/
 target/
 dist/
+
+# Tool caches
+.vite/
+*.tsbuildinfo
+*.log
+pnpm-debug.log*
+npm-debug.log*
+**/*.rs.bk
+
+# Secrets
+.env
+.env.*
+!.env.example
 
 # Generated files
 crates/deskulpt/gen/
