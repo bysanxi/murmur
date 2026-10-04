@@ -1,168 +1,145 @@
-# murmur
+# murmur / 三息之间
 
-> 在低语中呼吸，在安静中流动。  
+[中文](./README.zh.md) | English
+
 > Breathe in the quiet, flow in the stillness.
 
-一个基于 [Deskulpt](https://github.com/deskulpt-apps/Deskulpt) 的桌面治愈壁纸项目。  
-按时段切换动态插画与短句，在电脑前留出三次微小呼吸。
+A desktop healing wallpaper project built on [Deskulpt](https://github.com/deskulpt-apps/Deskulpt).  
+It switches dynamic illustrations and short sentences by time of day, leaving three tiny breaths in front of the computer.
 
-- 项目代码：`murmur`
-- 中文名：三息之间
-- 域名：[murmur.yoga](https://murmur.yoga)
-- 基座：Deskulpt
-- 定位：桌面上的情绪微陪伴 / 微休息触发器
-- 状态：早期构思与原型阶段
-
----
-
-## 它是什么
-
-它不是传统壁纸应用，也不是心理治疗工具或效率工具。
-
-它更像一个 **桌面上的小窗、小纸条、小呼吸口**。
-
-用户不需要主动打开任何界面，桌面本身就是内容载体。  
-在无意间瞥见桌面时，获得 **3 秒钟的停顿、呼吸、被理解**。
-
-核心内容形态：
-
-- **动态插画**：轻动态、低打扰、循环自然
-- **治愈短句**：1—3 行，一眼读完，不说教
-- **被动瞥见**：自动切换为主，手动切换为辅
-- **按时切换**：根据早晨、上午、午休、下午、傍晚、深夜等时段自动更换内容
-
-它不该是：
-
-- 心理治疗工具
-- 效率工具
-- 打卡工具
-- 说教工具
+- Project code: `murmur`
+- Chinese name: 三息之间
+- Domain: [murmur.yoga](https://murmur.yoga)
+- Foundation: Deskulpt
+- Positioning: A subtle emotional companion / micro-break trigger on the desktop
+- Status: Early concept and prototype stage
 
 ---
 
-## 核心理念
+## What It Is
 
+It is not a traditional wallpaper app, nor a therapy tool or productivity tool.
 
+It is more like a **small window, a little note, a tiny breathing space on your desktop**.
 
-### 一天三次微小呼吸
+Users do not need to open any interface; the desktop itself is the medium.  
+In a fleeting glance at the desktop, they get **three seconds of pause, breath, and feeling understood**.
 
-`三息之间` 对应的是：
+Core content forms:
 
-- 工作与工作之间
-- 消息与消息之间
-- 任务与任务之间
-- 情绪与情绪之间
+- **Dynamic illustrations**: subtle motion, low distraction, naturally looping
+- **Healing short sentences**: 1–3 lines, readable at a glance, non-preachy
+- **Passive glance**: automatic switching as the default, manual switching as secondary
+- **Time-based switching**: content changes automatically according to morning, late morning, lunch break, afternoon, evening, late night, etc.
 
-在这些间隙里，停一下，被接住一下。
+It should not be:
 
-### 不打扰的分寸感
-
-- 自动切换为主，手动切换为辅
-- 不做打卡、积分、排行榜
-- 不推送“你今天还没看”
-- 不制造新的焦虑
-- 像安静的室友，而不是催促的老板
-
-
-
-### 不要鸡汤，要人话
-
-- 不说“你应该”，多用“你可以”“也可以”“没关系”
-- 不强行积极，要能承接疲惫、焦虑、孤独、自我怀疑
-- 插画和文字是一体的，不是随便配图
+- A therapy tool
+- A productivity tool
+- A check-in / habit-tracking tool
+- A preachy tool
 
 ---
 
+## Core Philosophy
 
+### Three Tiny Breaths a Day
 
-## 功能方向
+`三息之间` corresponds to:
 
+- Between work and work
+- Between messages and messages
+- Between tasks and tasks
+- Between emotions and emotions
 
+In these gaps, pause for a moment, and be gently held.
 
-### 已确认方向
+### A Sense of Non-Intrusion
 
-- 动态插画 + 治愈短句 / 微故事
-- 被动瞥见，自动切换
-- 内容原创
-- 按时间切换
-- 泛人群
-- 不做商业化
-- 暂不做长期记录 / 治愈相册（后续版本再考虑）
+- Automatic switching first, manual switching second
+- No check-ins, points, or leaderboards
+- No notifications like "You haven't looked today"
+- Do not create new anxiety
+- Like a quiet roommate, not a boss rushing you
 
+### No Chicken Soup, Just Human Words
 
-
-### 时段与内容气质
-
-
-| 时段      | 时间范围（示例）      | 内容气质     |
-| ------- | ------------- | -------- |
-| 早晨      | 6:00 - 9:00   | 轻、柔、启动   |
-| 上午      | 9:00 - 12:00  | 稳、静、呼吸   |
-| 午休      | 12:00 - 14:00 | 松、日常、人味  |
-| 下午      | 14:00 - 18:00 | 暖、陪伴、不鸡血 |
-| 傍晚      | 18:00 - 21:00 | 收、结束、切换  |
-| 深夜      | 21:00 - 6:00  | 安、静、陪伴   |
-| 周末 / 假日 | —             | 慢、散、无目的  |
-
-
-
-
-### 内容主题
-
-- 自然、动物、人物、日常物件、抽象、窗景、云、植物
-- 情绪分类：疲惫、焦虑、孤独、自我怀疑、麻木、平静、希望
+- Avoid "you should"; prefer "you can", "it's also okay", "it's fine"
+- Do not force positivity; be able to hold fatigue, anxiety, loneliness, and self-doubt
+- Illustration and text are one; not arbitrary image-text pairing
 
 ---
 
+## Feature Direction
 
+### Confirmed Direction
 
-## 技术方向
+- Dynamic illustrations + healing short sentences / micro-stories
+- Passive glance, automatic switching
+- Original content
+- Time-based switching
+- General audience
+- No commercialization
+- No long-term records / healing album for now (revisit in a later version)
 
+### Time Periods and Content Tone
 
+| Time Period | Time Range (Example) | Content Tone |
+|-------------|----------------------|--------------|
+| Morning | 6:00 - 9:00 | Light, soft, starting |
+| Late Morning | 9:00 - 12:00 | Steady, quiet, breathing |
+| Lunch Break | 12:00 - 14:00 | Relaxed, everyday, human |
+| Afternoon | 14:00 - 18:00 | Warm, companionable, not hyped |
+| Evening | 18:00 - 21:00 | Wrapping up, ending, transitioning |
+| Late Night | 21:00 - 6:00 | Calm, quiet, companionable |
+| Weekend / Holiday | — | Slow, loose, purposeless |
 
-### 基座：Deskulpt
+### Content Themes
 
-Deskulpt 是一个跨平台桌面定制工具，允许用 React 组件定义 widget，并直接渲染在桌面上。
-
-本项目利用 Deskulpt 的以下能力：
-
-- **Sink 模式**：widget 不可交互，但桌面可正常使用，适合“被动瞥见”
-- **Z-index 控制**：设置为负值，确保壁纸位于桌面图标下方
-- **全屏覆盖**：通过位置 `(0,0)` + 尺寸等于屏幕分辨率实现视觉全屏
-- **React + WebView**：天然支持 CSS / SVG / Lottie / Three.js 动态内容
-
-
-
-### 动态插画技术选型
-
-
-| 方案               | 适用场景               |
-| ---------------- | ------------------ |
-| CSS 动画 + SVG     | 轻量微动效（呼吸、飘动、光影）    |
-| Lottie           | 角色小动作、较复杂插画动画      |
-| Three.js / WebGL | 3D 场景（如俯视鱼群、水面、粒子） |
-| Canvas           | 特殊粒子效果             |
-
-
-优先推荐：**CSS + SVG** 作为默认方案，**Three.js** 用于特定场景的亮点内容。
-
-### 按时切换实现
-
-在 React widget 内部通过 `useEffect` + `setInterval` 定时检查当前时段，从内容池中选取对应内容，淡入淡出过渡。
-
-### 性能与功耗
-
-- 动态幅度要小，避免 CPU / GPU 持续高负载
-- 使用 `requestAnimationFrame` 或 CSS `will-change` 优化渲染
-- 避免同时运行多个复杂动画
-- 考虑电池模式下自动降低动画频率
-- 全屏应用运行时暂停或降级动画
+- Nature, animals, people, everyday objects, abstract, window views, clouds, plants
+- Emotional categories: fatigue, anxiety, loneliness, self-doubt, numbness, calm, hope
 
 ---
 
+## Technical Direction
 
+### Foundation: Deskulpt
 
-## 项目结构（规划）
+Deskulpt is a cross-platform desktop customization tool that lets you define widgets as React components and render them directly on the desktop.
+
+This project uses the following Deskulpt capabilities:
+
+- **Sink mode**: widgets are non-interactive while the desktop remains usable, ideal for "passive glance"
+- **Z-index control**: set to a negative value so the wallpaper sits beneath desktop icons
+- **Full-screen coverage**: achieved visually through position `(0,0)` plus size matching the screen resolution
+- **React + WebView**: naturally supports CSS / SVG / Lottie / Three.js dynamic content
+
+### Dynamic Illustration Technology Choices
+
+| Option | Use Case |
+|--------|----------|
+| CSS Animation + SVG | Lightweight micro-motion (breathing, drifting, light shifts) |
+| Lottie | Character micro-actions, more complex illustration animation |
+| Three.js / WebGL | 3D scenes (e.g., top-down fish school, water surface, particles) |
+| Canvas | Special particle effects |
+
+Preferred approach: **CSS + SVG** as the default, with **Three.js** for standout content in specific scenes.
+
+### Time-Based Switching Implementation
+
+Inside the React widget, use `useEffect` + `setInterval` to periodically check the current time period, select matching content from the content pool, and transition with fade in/out.
+
+### Performance and Power Consumption
+
+- Keep motion subtle to avoid sustained high CPU / GPU load
+- Use `requestAnimationFrame` or CSS `will-change` to optimize rendering
+- Avoid running multiple complex animations at the same time
+- Consider automatically reducing animation frequency in battery mode
+- Pause or degrade animations when a full-screen app is running
+
+---
+
+## Project Structure (Planned)
 
 ```text
 murmur/
@@ -170,11 +147,10 @@ murmur/
 │   └── healing-wallpaper/
 │       ├── deskulpt.widget.json
 │       ├── index.jsx
-│       ├── components/      # 插画层、文字层、调度器
-│       ├── content/         # 内置内容池
-│       └── assets/          # 插画、动画资源
-├── packages/                # 共享逻辑（内容调度、时段判断）
-├── docs/                    # 设计原则、内容指南
+│       ├── components/      # Illustration layer, text layer, scheduler
+│       ├── content/         # Built-in content pool
+│       └── assets/          # Illustrations, animation assets
+├── packages/                # Shared logic (content scheduling, time period detection)
+├── docs/                    # Design principles, content guidelines
 └── README.md
 ```
-
