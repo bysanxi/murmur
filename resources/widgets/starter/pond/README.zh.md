@@ -18,7 +18,7 @@
 | `vendor/art.js`        | 用 Canvas 2D 画锦鲤、龟、蟹、蝴蝶的精灵。挂到 `window.PondArt`。 |
 | `vendor/gl.js`         | WebGL2 渲染器，失败时退回 2D。挂到 `window.PondGL`。             |
 | `vendor/scene.js`      | 把生物、浮萍和天气摆到渲染器上。挂到 `window.PondScene`。        |
-| `vendor/pond-data.js`  | 池塘照片，一张 JPEG data URL，放在 `window.POND_IMAGE`。         |
+| `vendor/pond-data.js`  | 池塘照片，一张 JPEG data URL，放在 `window.POND_IMAGE_REAL`。    |
 
 引擎来自 fishwallpaper，只保留观赏。投喂、声音、手绘图案、城市天气和鱼的存档都没有接上。
 
@@ -27,7 +27,7 @@
 引擎里只有一张位图：池底画。上游用 imagegen 生成，提示词留档在上游的 `assets/ARTWORK.md`，再由 `scripts/embed.mjs` 把 JPEG 整个 base64 成一行 JS：
 
 ```js
-window.POND_IMAGE = "data:image/jpeg;base64,...";
+window.POND_IMAGE_REAL = "data:image/jpeg;base64,...";
 ```
 
 内联是因为 `file://` 下图片像素对 WebGL 是跨域的，`texImage2D` 会拒绝读取；data URL 才能安全上传并 `generateMipmap`。竖屏时 `fitBed()` 把整张画转 90° 铺满屏幕，所以竖屏也能装下一个完整的池塘。
@@ -154,7 +154,7 @@ Deskulpt 把 React、Emotion 和组件 API 作为运行时外部依赖提供。�
 
 `prefers-reduced-motion: reduce` 时用 `eco`，否则用 `high`。Eco 把设备像素比锁成 1，目标 30 帧。High 把像素比限制在 2，目标 60 帧。渲染器还有像素上限：eco 为 160 万，high 为 830 万。超过上限就缩小帧缓冲，而不是按 4K 乘像素比分配整张贴图。
 
-池塘照片从 `window.POND_IMAGE` 加载。`PondGL.createRenderer` 先试 WebGL2，失败就克隆画布改走 2D。上下文丢失时丢掉渲染器；只要还没有 `destroy`，就再次调用 `createPond`。
+池塘照片从 `window.POND_IMAGE_REAL` 加载。`PondGL.createRenderer` 先试 WebGL2，失败就克隆画布改走 2D。上下文丢失时丢掉渲染器；只要还没有 `destroy`，就再次调用 `createPond`。
 
 每一帧推进模拟、更新场景外观、绘制并渲染。`document.hidden` 时循环停住。传给 `simulation.step` 的速度来自当前时段；eco 下这个速度再被限制在 `0.45`。
 

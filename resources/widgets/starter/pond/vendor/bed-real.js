@@ -105,5 +105,11 @@
     [1560, 830, 80, 40],
     [1262, 862, 62, 34],
   ];
-  root.PondBedReal = { floaters: FLOATERS, crabHomes: CRAB_HOMES };
+  root.PondBedReal = {
+    floaters: FLOATERS,
+    crabHomes: CRAB_HOMES,
+    get image() {
+      return root.POND_IMAGE_REAL;
+    },
+  };
 })(window);

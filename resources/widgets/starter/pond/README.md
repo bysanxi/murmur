@@ -18,7 +18,7 @@ The first launch copies this directory into the live widgets folder (`target/deb
 | `vendor/art.js`        | Canvas 2D sprites for koi, turtles, crabs, and butterflies. Publishes `window.PondArt`.                                           |
 | `vendor/gl.js`         | WebGL2 renderer, with a 2D fallback. Publishes `window.PondGL`.                                                                   |
 | `vendor/scene.js`      | Places creatures, lilies, and weather on top of the renderer. Publishes `window.PondScene`.                                       |
-| `vendor/pond-data.js`  | The pond photograph as a JPEG data URL on `window.POND_IMAGE`.                                                                    |
+| `vendor/pond-data.js`  | The pond photograph as a JPEG data URL on `window.POND_IMAGE_REAL`.                                                               |
 
 The engine is the fishwallpaper implementation, trimmed to a viewing pond. Feeding, audio, hand-drawn patterns, city weather, and saved fish are not wired up.
 
@@ -27,7 +27,7 @@ The engine is the fishwallpaper implementation, trimmed to a viewing pond. Feedi
 The engine holds exactly one bitmap: the pond bed. The upstream project generated it with imagegen (the prompt is kept in the upstream `assets/ARTWORK.md`) and `scripts/embed.mjs` base64s the whole JPEG into a single line of JS:
 
 ```js
-window.POND_IMAGE = "data:image/jpeg;base64,...";
+window.POND_IMAGE_REAL = "data:image/jpeg;base64,...";
 ```
 
 The image is inlined because pixel data from a `file://` URL is cross-origin to WebGL, so `texImage2D` refuses to read it. A data URL uploads safely and can be mipmapped. On a portrait screen `fitBed()` turns the whole painting a quarter, so a portrait display still fits a complete pond.
@@ -154,7 +154,7 @@ Mounting uses `useLayoutEffect`, not `useEffect`, so a retained frame can be att
 
 `prefers-reduced-motion: reduce` selects the `eco` quality. Otherwise the quality is `high`. Eco locks the device pixel ratio to 1 and aims at 30 fps. High caps the pixel ratio at 2 and aims at 60 fps. The renderer also caps the framebuffer: 1.6 million pixels in eco, 8.3 million in high. Above the cap it scales the buffer down instead of allocating a full 4K×DPR surface.
 
-The pond image loads from `window.POND_IMAGE`. `PondGL.createRenderer` tries WebGL2 first. If that fails it clones the canvas and uses the 2D path. Context loss drops the renderer and calls `createPond` again unless `destroy` has already run.
+The pond image loads from `window.POND_IMAGE_REAL`. `PondGL.createRenderer` tries WebGL2 first. If that fails it clones the canvas and uses the 2D path. Context loss drops the renderer and calls `createPond` again unless `destroy` has already run.
 
 Each animation frame steps the simulation, updates the scene look, draws, and renders. The loop pauses while `document.hidden` is true. The speed passed into `simulation.step` comes from the current period. In eco that speed is also capped at `0.45`.
 

@@ -495,10 +495,12 @@ void main(){
   ];
 
   // Shelf-pack misc sprites under the fish cells.
-  function packSprites(sprites) {
+  // Places misc sprites under the fish cells. Throws before writing if they would leave that region.
+  function layoutSprites(sprites) {
     const list = Object.entries(sprites).sort(
       (a, b) => b[1].canvas.height - a[1].canvas.height,
     );
+    const placed = [];
     let x = 4,
       y = MISC_Y,
       shelf = 0;
@@ -510,18 +512,27 @@ void main(){
         y += shelf + 8;
         shelf = 0;
       }
-      if (y + h + 4 > ATLAS) throw Error("atlas full");
+      if (y < MISC_Y || y + h + 4 > ATLAS) throw Error("atlas full");
+      placed.push({ s, x, y, w, h });
+      x += w + 8;
+      shelf = Math.max(shelf, h);
+    }
+    return placed;
+  }
+  function assignSprites(placed) {
+    for (const { s, x, y, w, h } of placed) {
       s.x = x;
       s.y = y;
       s.w = w;
       s.h = h;
-      x += w + 8;
-      shelf = Math.max(shelf, h);
-      s.u0 = s.x / ATLAS;
-      s.v0 = s.y / ATLAS;
-      s.u1 = (s.x + w) / ATLAS;
-      s.v1 = (s.y + h) / ATLAS;
+      s.u0 = x / ATLAS;
+      s.v0 = y / ATLAS;
+      s.u1 = (x + w) / ATLAS;
+      s.v1 = (y + h) / ATLAS;
     }
+  }
+  function packSprites(sprites) {
+    assignSprites(layoutSprites(sprites));
     return sprites;
   }
 
@@ -925,6 +936,68 @@ void main(){
       gl.uniform3fv(p.u("uBedU"), state.bed.u);
       gl.uniform3fv(p.u("uBedV"), state.bed.v);
     }
+    function setBedImage(image) {
+      bedImage = image;
+      state.bed = fitBed(bedImage.width, bedImage.height, state.w, state.h);
+      gl.bindTexture(gl.TEXTURE_2D, bedTex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        bedImage,
+      );
+      gl.generateMipmap(gl.TEXTURE_2D);
+    }
+    function setFloatMask(mask) {
+      gl.bindTexture(gl.TEXTURE_2D, floatTex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      if (mask)
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA8,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          mask,
+        );
+      else
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA8,
+          1,
+          1,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array(4),
+        );
+      gl.generateMipmap(gl.TEXTURE_2D);
+    }
+    function measureSprites(next) {
+      layoutSprites(next);
+    }
+    function reloadSprites(next) {
+      const placed = layoutSprites(next);
+      assignSprites(placed);
+      gl.bindTexture(gl.TEXTURE_2D, atlas);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      for (const s of Object.values(next))
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          s.x,
+          s.y,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          s.canvas,
+        );
+      atlasDirty = true;
+      api.sprites = next;
+    }
 
     function setFish(i, sprite) {
       if (i >= MAX_FISH) return;
@@ -1232,6 +1305,10 @@ void main(){
       resize,
       imageToScreen,
       setFish,
+      setBedImage,
+      setFloatMask,
+      measureSprites,
+      reloadSprites,
       render,
       drop(x, y, r, s) {
         if (drops.length < 96) drops.push([x, y, r, s]);
@@ -1452,6 +1529,24 @@ void main(){
         c.width = sprite.width;
         c.height = sprite.height;
         c.getContext("2d").drawImage(sprite, 0, 0);
+      },
+      setBedImage(image) {
+        bedImage = image;
+        state.bed = fitBed(
+          bedImage.width,
+          bedImage.height,
+          state.w,
+          state.h,
+          false,
+        );
+      },
+      setFloatMask() {},
+      measureSprites(next) {
+        layoutSprites(next);
+      },
+      reloadSprites(next) {
+        assignSprites(layoutSprites(next));
+        this.sprites = next;
       },
       drop(x, y, r, s) {
         if (s > 0.05 && rings.length < 60)

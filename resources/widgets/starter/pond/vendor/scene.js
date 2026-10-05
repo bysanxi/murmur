@@ -3,25 +3,45 @@
   "use strict";
   const { fishPalette, BODY, clamp, wrap, fishPose } = root.PondCore;
   const { halfWidth, girthOf } = root.PondArt;
-  const { finTint, bodyShade } = root.PondLookReal;
   const TAU = Math.PI * 2;
+  let style = root.PondStyles.real;
+  const floaters = () => style.bed.floaters;
+  const homes = () => style.bed.crabHomes;
+  const lotusBeds = () => floaters().filter((f) => f[3] === "f" && f[2] > 25);
+  function sway(list, rnd) {
+    const rank = (f) => ({ r: 0, l: 1, f: f[2] > 25 ? 4 : 2, b: 3 })[f[3]];
+    return list
+      .map((f) => ({
+        f,
+        p: [rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU],
+        sp: 0.8 + rnd() * 0.4,
+        seed: rnd(),
+        ja: 0,
+        jv: 0,
+        ox: 0,
+        oy: 0,
+        vx: 0,
+        vy: 0,
+        dx: 0,
+        dy: 0,
+      }))
+      .sort((a, b) => rank(a.f) - rank(b.f) || b.f[2] - a.f[2]);
+  }
 
-  // Things above the water in the painted pond (assets/pond.jpg, 1672×941), fitted to the painting's edges:
+  // Things above the water in the painted pond, fitted to the painting's edges:
   // [x, y, rx, kind, ry, rotation]; l = lotus/pennywort leaf, f = flower or petal, b = lotus bud, r = rock breaking the surface.
-  const FLOATERS = root.PondBedReal.floaters;
-  const LOTUS = FLOATERS.filter((f) => f[3] === "f" && f[2] > 25);
   // Flowers, buds and petals have pointed tips, so their ellipses are grown a little to take the tips in.
   const grow = (f) =>
     f[3] === "f" || f[3] === "b" ? 1.1 : f[3] === "l" ? 1.02 : 1;
   // Mask in image space: red = above water (no refraction or caustics), green = casts a shadow on the bed,
   // blue = rests on the water and leaves a wet line (flowers on stalks do not).
-  function floatMask(width, height) {
+  function floatMask(width, height, list = floaters()) {
     const k = 0.5,
       c = document.createElement("canvas");
     c.width = Math.round(width * k);
     c.height = Math.round(height * k);
     const ctx = c.getContext("2d");
-    for (const f of FLOATERS) {
+    for (const f of list) {
       const [x, y, rx, kind, ry = rx, rot = 0] = f,
         g = grow(f),
         stalk = kind === "b" || (kind === "f" && rx > 25);
@@ -696,7 +716,6 @@
   }
 
   // Where crabs live, in painting px [x, y, rx, ry]: the rocks that break the surface and the mossy banks around them.
-  const CRAB_HOMES = root.PondBedReal.crabHomes;
   // A small crab: it scuttles sideways about its rock or bank, rests with claws raised, now and then waves one,
   // and bolts for the water and dives when something startles it, coming up again somewhere else a while later.
   class Crab {
@@ -724,7 +743,7 @@
     }
     // Position on screen of a point (u, v in the unit disc) of home h.
     at(R, h, u, v) {
-      const [x, y, rx, ry] = CRAB_HOMES[h];
+      const [x, y, rx, ry] = homes()[h];
       return R.imageToScreen(x + u * rx, y + v * ry);
     }
     emerge(R, homes, taken = []) {
@@ -776,7 +795,7 @@
         return;
       }
       this.alpha = Math.min(1, this.alpha + dt * 1.2);
-      const [, , rx, ry] = CRAB_HOMES[this.home],
+      const [, , rx, ry] = homes()[this.home],
         k = Math.hypot(
           ...R.imageToScreen(1, 0).map((c, i) => c - R.imageToScreen(0, 0)[i]),
         );
@@ -929,23 +948,10 @@
       this.dragonflies = [new Dragonfly(rnd() < 0.7 ? 0 : 1, rnd)];
       this.crabs = [0, 1, 0].map((v) => new Crab(v, rnd));
       this.crabHomes = [];
+      this.style = style;
       // Rocks first, then leaves largest to smallest, then petals, buds and flowers on top; each sways on its own clock.
-      const rank = (f) => ({ r: 0, l: 1, f: f[2] > 25 ? 4 : 2, b: 3 })[f[3]];
       // Each also carries a small spring (angle ja, offset ox/oy) that raindrops knock and that settles back.
-      this.floaters = FLOATERS.map((f) => ({
-        f,
-        p: [rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU],
-        sp: 0.8 + rnd() * 0.4,
-        seed: rnd(),
-        ja: 0,
-        jv: 0,
-        ox: 0,
-        oy: 0,
-        vx: 0,
-        vy: 0,
-        dx: 0,
-        dy: 0,
-      })).sort((a, b) => rank(a.f) - rank(b.f) || b.f[2] - a.f[2]);
+      this.floaters = sway(floaters(), rnd);
       this.petals = [];
       this.flies = [];
       this.rain = [];
@@ -1049,16 +1055,26 @@
       fl.vx -= Math.cos(a) * r * light * 9;
       fl.vy -= Math.sin(a) * r * light * 9;
     }
-    layout(w, h) {
-      this.w = w;
-      this.h = h;
-      this.scale = clamp(Math.min(w, h) / 800, 0.62, 1.12);
-      const R = this.R,
+    setStyle(next) {
+      style = next;
+      this.style = next;
+    }
+    // New bed: rebuild leaves and the places rain can land. Creatures keep their place until resettle.
+    placeBed() {
+      this.floaters = sway(floaters(), this.rnd);
+      this.measureBed();
+    }
+    measureBed() {
+      const w = this.w,
+        h = this.h,
+        R = this.R,
         inside = ([x, y]) => x > 20 && x < w - 20 && y > 20 && y < h - 20;
-      this.spots = FLOATERS.filter((f) => f[3] !== "r" && f[2] > 25)
+      this.spots = floaters()
+        .filter((f) => f[3] !== "r" && f[2] > 25)
         .map(([x, y]) => R.imageToScreen(x, y))
         .filter(inside);
-      this.buds = FLOATERS.filter((f) => f[3] === "b")
+      this.buds = floaters()
+        .filter((f) => f[3] === "b")
         .map(([x, y, rx, k, ry = rx, rot = 0]) =>
           R.imageToScreen(
             x - Math.sin(rot) * ry * 0.7,
@@ -1066,26 +1082,19 @@
           ),
         )
         .filter(inside);
-      for (const d of this.dragonflies) {
-        d.x = -1;
-        d.state = "hover";
-        d.timer = 1;
-      }
-      // Koi may slip under the rim of a leaf, but not through rocks.
       const [x0, y0] = R.imageToScreen(0, 0),
         [x1, y1] = R.imageToScreen(1, 0),
         k = Math.hypot(x1 - x0, y1 - y0);
-      this.sim.obstacles = FLOATERS.filter((f) => f[2] > 25).map(
-        ([x, y, rx, kind, ry = rx]) => {
+      this.sim.obstacles = floaters()
+        .filter((f) => f[2] > 25)
+        .map(([x, y, rx, kind, ry = rx]) => {
           const [sx, sy] = R.imageToScreen(x, y);
           return {
             x: sx,
             y: sy,
             r: Math.min(rx, ry) * k * (kind === "r" ? 0.95 : 0.55),
           };
-        },
-      );
-      // Leaves, flowers and rocks on screen, weighted by area, for raindrops to land on.
+        });
       this.targets = [];
       this.targetArea = 0;
       for (const fl of this.floaters) {
@@ -1096,11 +1105,8 @@
         this.targetArea += Math.PI * rx * ry * k * k;
         this.targets.push([this.targetArea, fl]);
       }
-      // Crabs only live on the rocks and banks that are on screen.
-      this.crabHomes = CRAB_HOMES.map((c, i) => [
-        i,
-        R.imageToScreen(c[0], c[1]),
-      ])
+      this.crabHomes = homes()
+        .map((c, i) => [i, R.imageToScreen(c[0], c[1])])
         .filter(([, [x, y]]) => x > 30 && x < w - 30 && y > 30 && y < h - 30)
         .map(([i]) => i);
       for (const c of this.crabs)
@@ -1108,8 +1114,77 @@
           c.state = "hidden";
           c.timer = 1 + this.rnd() * 5;
         }
+    }
+    // When the new bed's landmarks move, crabs take the nearest home and insects the nearest perch.
+    // Identical coordinates leave everyone where they are.
+    resettle(prevBed) {
+      const same =
+        JSON.stringify(prevBed.floaters) === JSON.stringify(floaters()) &&
+        JSON.stringify(prevBed.crabHomes) === JSON.stringify(homes());
+      if (same) return;
+      const R = this.R;
+      if (JSON.stringify(prevBed.crabHomes) !== JSON.stringify(homes())) {
+        const old = prevBed.crabHomes;
+        const pool = this.crabHomes.length
+          ? this.crabHomes
+          : homes().map((_, i) => i);
+        for (const c of this.crabs) {
+          const home = old[c.home] || old[0];
+          const [x, y, rx, ry] = home;
+          const [sx, sy] = R.imageToScreen(x + c.u * rx, y + c.v * ry);
+          let best = pool[0],
+            bestD = Infinity;
+          for (const h of pool) {
+            const [hx, hy] = R.imageToScreen(homes()[h][0], homes()[h][1]);
+            const d = (hx - sx) ** 2 + (hy - sy) ** 2;
+            if (d < bestD) {
+              bestD = d;
+              best = h;
+            }
+          }
+          c.home = best;
+          c.u = 0;
+          c.v = 0;
+        }
+      }
+      const nearest = (x, y, points) => {
+        let best = null,
+          bestD = Infinity;
+        for (const p of points) {
+          const d = (p[0] - x) ** 2 + (p[1] - y) ** 2;
+          if (d < bestD) {
+            bestD = d;
+            best = p;
+          }
+        }
+        return best;
+      };
+      for (const b of this.butterflies) {
+        const p = nearest(b.x, b.y, this.spots);
+        if (!p) continue;
+        b.target = { x: p[0], y: p[1], land: true };
+        b.state = "fly";
+      }
+      for (const d of this.dragonflies) {
+        if (d.x < 0) continue;
+        const pool = this.buds.length ? this.buds : this.spots;
+        const p = nearest(d.x, d.y, pool);
+        if (!p) continue;
+        d.target = { x: p[0], y: p[1] };
+      }
+    }
+    layout(w, h) {
+      this.w = w;
+      this.h = h;
+      this.scale = clamp(Math.min(w, h) / 800, 0.62, 1.12);
+      this.measureBed();
+      for (const d of this.dragonflies) {
+        d.x = -1;
+        d.state = "hover";
+        d.timer = 1;
+      }
       this.causticCell = clamp(Math.min(w, h) / 7, 70, 150);
-      const [mx, my] = R.imageToScreen(1000, 255);
+      const [mx, my] = this.R.imageToScreen(1000, 255);
       this.moonAt = [clamp(mx, w * 0.2, w * 0.8), clamp(my, h * 0.15, h * 0.5)];
       this.phaseAt = 0;
       for (const b of this.butterflies) {
@@ -1231,9 +1306,9 @@
       }
       // Lotus petals drift on the surface and get pushed by ripples.
       if (this.petals.length < 5 && rnd() < dt * 0.05) {
-        const lotus = LOTUS.map(([x, y]) => this.R.imageToScreen(x, y)).filter(
-            ([x, y]) => x > -40 && x < w + 40 && y > -40 && y < h + 40,
-          ),
+        const lotus = lotusBeds()
+            .map(([x, y]) => this.R.imageToScreen(x, y))
+            .filter(([x, y]) => x > -40 && x < w + 40 && y > -40 && y < h + 40),
           p0 = lotus.length
             ? lotus[Math.floor(rnd() * lotus.length)]
             : [rnd() * w, rnd() * h];
@@ -1436,7 +1511,8 @@
         !f.light ||
         f.light.seed !== f.seed ||
         f.light.palette !== f.palette ||
-        f.light.species !== f.species
+        f.light.species !== f.species ||
+        f.light.style !== style.name
       ) {
         const girth = girthOf(f.seed),
           widths = new Float32Array(BODY.segments + 1),
@@ -1448,8 +1524,9 @@
               girth,
               kind,
             ) / BODY.half;
-        const shade = bodyShade(kind);
+        const shade = style.look.bodyShade(kind);
         f.light = {
+          style: style.name,
           species: f.species,
           seed: f.seed,
           palette: f.palette,
@@ -1483,7 +1560,7 @@
         pal = fishPalette(f),
         slender = pal.kind === "silvercarp",
         finDef = R.sprites[pal.kind === "utsuri" ? "finMoto" : "fin"];
-      const tint = finTint(f.palette, pal, f.species);
+      const tint = style.look.finTint(f.palette, pal, f.species);
       const base =
         1.05 -
         0.6 * clamp(bl / 1.4, 0, 1) +

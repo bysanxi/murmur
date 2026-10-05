@@ -1,0 +1,89 @@
+// Prepare a style off the frame, then commit it in one turn.
+// The overflow check runs before any texture write.
+
+export function decodeBed(url) {
+  const image = new Image();
+  image.src = url;
+  if (typeof image.decode === "function")
+    return image.decode().then(() => image);
+  return new Promise((resolve, reject) => {
+    image.addEventListener("load", () => resolve(image), { once: true });
+    image.addEventListener("error", () => reject(new Error("bed")), {
+      once: true,
+    });
+  });
+}
+
+export function createStyleSwap(ctx) {
+  const miscCache = new Map();
+  let switchToken = 0;
+
+  function miscFor(next) {
+    let cached = miscCache.get(next.name);
+    if (!cached) {
+      cached = next.art.miscSprites();
+      miscCache.set(next.name, cached);
+    }
+    return cached;
+  }
+
+  function prepareStyle(next) {
+    return decodeBed(next.bed.image).then((image) => ({
+      style: next,
+      image,
+      sprites: miscFor(next),
+      fish: ctx
+        .fish()
+        .map((item) => ctx.fishCanvas(item, next.art, ctx.cacheFor(next.name))),
+      mask: ctx.floatMask(
+        image.naturalWidth,
+        image.naturalHeight,
+        next.bed.floaters,
+      ),
+    }));
+  }
+
+  function commitStyle(prepared) {
+    const prev = ctx.style();
+    const renderer = ctx.renderer();
+    const scene = ctx.scene();
+    renderer.measureSprites(prepared.sprites);
+    renderer.reloadSprites(prepared.sprites);
+    renderer.setBedImage(prepared.image);
+    renderer.setFloatMask(prepared.mask);
+    ctx.setSprites(prepared.sprites);
+    ctx.setBed(prepared.image);
+    prepared.fish.forEach((sprite, index) => {
+      renderer.setFish(index, sprite);
+      const item = ctx.fish()[index];
+      item.spriteReady = true;
+      item.spriteCell = index;
+      item.light = null;
+    });
+    scene.setStyle(prepared.style);
+    ctx.setStyle(prepared.style);
+    scene.placeBed();
+    scene.resettle(prev.bed);
+  }
+
+  function requestStyle(name) {
+    const next = ctx.styles[name];
+    const renderer = ctx.renderer();
+    const scene = ctx.scene();
+    if (!next || !renderer || !scene || next.name === ctx.style().name) return;
+    const token = ++switchToken;
+    prepareStyle(next).then(
+      (prepared) => {
+        if (ctx.stopped() || token !== switchToken || !ctx.renderer()) return;
+        try {
+          commitStyle(prepared);
+        } catch (error) {
+          console.warn("pond style switch aborted", error);
+        }
+      },
+      (error) => console.warn("pond style prepare failed", error),
+    );
+  }
+
+  return { requestStyle };
+}

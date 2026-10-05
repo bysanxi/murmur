@@ -9,9 +9,10 @@ import "./vendor/art.js";
 import "./vendor/art-real.js";
 import "./vendor/bed-real.js";
 import "./vendor/look-real.js";
+import "./vendor/pond-data.js";
+import "./vendor/styles.js";
 import "./vendor/gl.js";
 import "./vendor/scene.js";
-import "./vendor/pond-data.js";
 import { mountPond } from "./viewer.js";
 import { atmosphereOf, lineOf, subscribeLanguage } from "./lines.js";
 

@@ -1,6 +1,8 @@
 // Viewing-only host for the pond engine in vendor/.
 // The engine comes from the independent fishwallpaper implementation.
 
+import { createStyleSwap } from "./style-swap.js";
+
 let parkedFrame = null;
 
 function parkFrame(canvas) {
@@ -22,7 +24,7 @@ const reducedMotion = () =>
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function mountPond(host, config) {
-  const { PondCore, PondArtReal, PondGL, PondScene } = window;
+  const { PondCore, PondGL, PondScene, PondStyles } = window;
   const { createFish, randomSeed, createSilverCarpShoal, clamp } = PondCore;
 
   const canvas = document.createElement("canvas");
@@ -62,8 +64,9 @@ export function mountPond(host, config) {
     createSilverCarpShoal(),
     true,
   );
-  const sprites = PondArtReal.miscSprites();
-  const spriteCache = new Map();
+  let style = PondStyles.real;
+  const spriteCaches = new Map();
+  let sprites = style.art.miscSprites();
   let view = canvas;
   let renderer = null;
   let scene = null;
@@ -88,12 +91,20 @@ export function mountPond(host, config) {
     }
   }
 
-  function fishCanvas(fishSprite) {
+  function cacheFor(name) {
+    let bucket = spriteCaches.get(name);
+    if (!bucket) {
+      bucket = new Map();
+      spriteCaches.set(name, bucket);
+    }
+    return bucket;
+  }
+  function fishCanvas(fishSprite, art, bucket) {
     const key = `${fishSprite.species || "koi"}:${fishSprite.palette}:${fishSprite.seed}`;
-    let cached = spriteCache.get(key);
+    let cached = bucket.get(key);
     if (!cached) {
-      cached = PondArtReal.fishSprite(fishSprite, PondGL.FISH_PPU);
-      spriteCache.set(key, cached);
+      cached = art.fishSprite(fishSprite, PondGL.FISH_PPU);
+      bucket.set(key, cached);
     }
     return cached;
   }
@@ -102,23 +113,53 @@ export function mountPond(host, config) {
     if (!renderer) return;
     simulation.allFish.forEach((item, index) => {
       if (!item.spriteReady || item.spriteCell !== index) {
-        renderer.setFish(index, fishCanvas(item));
+        renderer.setFish(
+          index,
+          fishCanvas(item, style.art, cacheFor(style.name)),
+        );
         item.spriteReady = true;
         item.spriteCell = index;
       }
     });
   }
 
+  let currentBed = null;
+  const { requestStyle } = createStyleSwap({
+    styles: PondStyles,
+    fish: () => simulation.allFish,
+    fishCanvas,
+    cacheFor,
+    floatMask: PondScene.floatMask,
+    style: () => style,
+    setStyle(next) {
+      style = next;
+    },
+    renderer: () => renderer,
+    scene: () => scene,
+    setSprites(next) {
+      sprites = next;
+    },
+    setBed(image) {
+      currentBed = image;
+    },
+    stopped: () => stopped,
+  });
+
   function createPond(bedImage) {
+    currentBed = bedImage;
     renderer = PondGL.createRenderer(
       view,
       bedImage,
       sprites,
       () => {
         renderer = null;
-        if (!stopped) createPond(bedImage);
+        if (!stopped && currentBed) createPond(currentBed);
       },
-      PondScene.floatMask(bedImage.naturalWidth, bedImage.naturalHeight),
+      PondScene.floatMask(
+        bedImage.naturalWidth,
+        bedImage.naturalHeight,
+        style.bed.floaters,
+      ),
     );
     if (!renderer) return;
     if (renderer.canvas !== view) {
@@ -211,9 +252,10 @@ export function mountPond(host, config) {
       size();
     }
     if (!settings.followTime) applyManual();
+    if (typeof next.style === "string") requestStyle(next.style);
   }
   setConfig(config);
-  bed.src = window.POND_IMAGE;
+  bed.src = style.bed.image;
 
   return {
     setConfig,
