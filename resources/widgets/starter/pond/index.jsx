@@ -12,8 +12,11 @@ import "./vendor/pond-data.js";
 import { mountPond } from "./viewer.js";
 import { atmosphereOf, lineOf, subscribeLanguage } from "./lines.js";
 
-export default function Pond() {
+export default function Pond({ config }) {
   const host = useRef(null);
+  const pondRef = useRef(null);
+  const configRef = useRef(config);
+  configRef.current = config;
   const [line, setLine] = useState(() => lineOf(new Date()));
   const [shown, setShown] = useState(line);
   const [viewport, setViewport] = useState(() => ({
@@ -29,7 +32,8 @@ export default function Pond() {
   }, []);
 
   useLayoutEffect(() => {
-    const pond = mountPond(host.current);
+    const pond = mountPond(host.current, configRef.current);
+    pondRef.current = pond;
     const tick = () => {
       const now = new Date();
       pond.setAtmosphere(atmosphereOf(now));
@@ -41,9 +45,18 @@ export default function Pond() {
     return () => {
       clearInterval(timer);
       unsubscribe();
+      pondRef.current = null;
       pond.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    const pond = pondRef.current;
+    if (!pond) return;
+    pond.setConfig(config);
+    if (config?.followTime !== false)
+      pond.setAtmosphere(atmosphereOf(new Date()));
+  }, [config]);
 
   useEffect(() => {
     if (line === shown) return;

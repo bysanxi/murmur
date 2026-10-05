@@ -21,7 +21,7 @@ const reducedMotion = () =>
   typeof matchMedia === "function" &&
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export function mountPond(host) {
+export function mountPond(host, config) {
   const { PondCore, PondArt, PondGL, PondScene } = window;
   const { createFish, randomSeed, createSilverCarpShoal, clamp } = PondCore;
 
@@ -43,7 +43,9 @@ export function mountPond(host) {
     night: false,
     rainAmount: 0.35,
     snowAmount: 0.35,
+    followTime: true,
   };
+  const manual = { weather: "sunny", night: false, speed: 0.7 };
 
   const fish = Array.from({ length: 24 }, (_, i) => ({
     ...createFish(i, randomSeed(i * 7 + 3)),
@@ -164,14 +166,62 @@ export function mountPond(host) {
     createPond(bed);
     frameId = requestAnimationFrame(frame);
   });
+
+  const pace = (speed) =>
+    settings.quality === "eco" ? Math.min(speed, 0.45) : speed;
+
+  function applyManual() {
+    settings.weather = manual.weather;
+    settings.night = manual.night;
+    settings.speed = pace(manual.speed);
+  }
+
+  function setConfig(next) {
+    if (!next || typeof next !== "object") return;
+    for (const key of ["turtles", "crabs", "butterflies"]) {
+      if (typeof next[key] === "boolean") settings[key] = next[key];
+    }
+    if (
+      typeof next.silverCarp === "boolean" &&
+      next.silverCarp !== settings.silverCarp
+    ) {
+      settings.silverCarp = next.silverCarp;
+      simulation.residentsOn = next.silverCarp;
+      simulation.residents.forEach((fish) => {
+        fish.spriteReady = false;
+      });
+      uploadSprites();
+    }
+    if (typeof next.followTime === "boolean")
+      settings.followTime = next.followTime;
+    if (["sunny", "cloudy", "rain", "snow"].includes(next.weather))
+      manual.weather = next.weather;
+    if (typeof next.night === "boolean") manual.night = next.night;
+    if (typeof next.speed === "number" && Number.isFinite(next.speed))
+      manual.speed = clamp(next.speed, 0.3, 2);
+    if (typeof next.rainAmount === "number" && Number.isFinite(next.rainAmount))
+      settings.rainAmount = clamp(next.rainAmount, 0, 1);
+    if (typeof next.snowAmount === "number" && Number.isFinite(next.snowAmount))
+      settings.snowAmount = clamp(next.snowAmount, 0, 1);
+    if (
+      (next.quality === "high" || next.quality === "eco") &&
+      next.quality !== settings.quality
+    ) {
+      settings.quality = next.quality;
+      size();
+    }
+    if (!settings.followTime) applyManual();
+  }
+  setConfig(config);
   bed.src = window.POND_IMAGE;
 
   return {
+    setConfig,
     setAtmosphere(next) {
+      if (!settings.followTime) return;
       settings.weather = next.weather;
       settings.night = next.night;
-      settings.speed =
-        settings.quality === "eco" ? Math.min(next.speed, 0.45) : next.speed;
+      settings.speed = pace(next.speed);
     },
     destroy() {
       stopped = true;
