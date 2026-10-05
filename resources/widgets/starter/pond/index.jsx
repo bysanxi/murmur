@@ -6,6 +6,9 @@ import {
 } from "@deskulpt-test/react";
 import "./vendor/core.js";
 import "./vendor/art.js";
+import "./vendor/art-real.js";
+import "./vendor/bed-real.js";
+import "./vendor/look-real.js";
 import "./vendor/gl.js";
 import "./vendor/scene.js";
 import "./vendor/pond-data.js";

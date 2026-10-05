@@ -1,112 +1,14 @@
 // Everything alive in the pond besides the simulation: koi drawing, turtles, butterflies, petals, weather.
 (function (root) {
   "use strict";
-  const { PALETTES, fishPalette, BODY, clamp, wrap, fishPose } = root.PondCore;
+  const { fishPalette, BODY, clamp, wrap, fishPose } = root.PondCore;
   const { halfWidth, girthOf } = root.PondArt;
+  const { finTint, bodyShade } = root.PondLookReal;
   const TAU = Math.PI * 2;
-  const rgb = (h) => [
-    parseInt(h.slice(1, 3), 16) / 255,
-    parseInt(h.slice(3, 5), 16) / 255,
-    parseInt(h.slice(5, 7), 16) / 255,
-  ];
 
   // Things above the water in the painted pond (assets/pond.jpg, 1672×941), fitted to the painting's edges:
   // [x, y, rx, kind, ry, rotation]; l = lotus/pennywort leaf, f = flower or petal, b = lotus bud, r = rock breaking the surface.
-  const FLOATERS = [
-    [1419, 10, 73, "l"],
-    [1450, 120, 60, "l", 52],
-    [1504, 231, 55, "l", 45],
-    [1609, 267, 66, "l"],
-    [1645, 452, 66, "l", 64],
-    [1565, 147, 48, "f", 40],
-    [1538, 41, 17, "b", 22],
-    [1579, 395, 30, "f", 26],
-    [1635, 351, 14, "b", 17],
-    [1398, 202, 14, "f", 20, -0.3],
-    [1550, 503, 21, "f", 13, 0.35],
-    [1352, 161, 18, "l"],
-    [1373, 131, 16, "l"],
-    [1310, 103, 15, "l"],
-    [1284, 121, 14, "l"],
-    [1311, 148, 13, "l"],
-    [1332, 39, 14, "l"],
-    [1293, 11, 10, "l"],
-    [1503, 52, 15, "l"],
-    [1539, 83, 28, "l"],
-    [1513, 139, 13, "l"],
-    [1628, 201, 22, "l"],
-    [1657, 183, 13, "l"],
-    [1653, 217, 17, "l"],
-    [1518, 289, 15, "l"],
-    [1526, 299, 14, "l"],
-    [1544, 318, 14, "l"],
-    [1503, 339, 17, "l"],
-    [1534, 356, 15, "l"],
-    [1471, 363, 19, "l"],
-    [1508, 377, 18, "l"],
-    [1523, 413, 18, "l"],
-    [1654, 376, 17, "l"],
-    [1663, 322, 12, "l"],
-    [1570, 539, 15, "l"],
-    [1596, 529, 14, "l"],
-    [1586, 567, 12, "l"],
-    [1654, 791, 17, "l"],
-    [1622, 806, 13, "l"],
-    [1641, 820, 13, "l"],
-    [1606, 838, 25, "l"],
-    [1663, 859, 15, "l"],
-    [1624, 885, 22, "l"],
-    [1663, 893, 15, "l"],
-    [1536, 740, 59, "r", 47],
-    [1639, 628, 51, "r", 55],
-    [36, 550, 50, "l", 54],
-    [175, 732, 71, "l", 65],
-    [11, 741, 50, "l"],
-    [65, 848, 81, "l"],
-    [196, 921, 91, "l"],
-    [267, 810, 43, "l", 40],
-    [67, 655, 49, "f", 42],
-    [139, 547, 17, "b", 20, 0.5],
-    [71, 734, 14, "b", 17],
-    [201, 826, 30, "f", 27],
-    [355, 773, 21, "f", 13, 0.3],
-    [52, 397, 16, "f", 11],
-    [67, 463, 16, "l"],
-    [104, 451, 17, "l"],
-    [115, 483, 17, "l"],
-    [78, 497, 16, "l"],
-    [101, 535, 17, "l"],
-    [17, 480, 16, "l"],
-    [98, 603, 18, "l"],
-    [145, 609, 19, "l"],
-    [13, 629, 13, "l"],
-    [129, 643, 20, "l"],
-    [165, 643, 16, "l"],
-    [226, 654, 14, "l"],
-    [256, 653, 14, "l"],
-    [251, 686, 14, "l"],
-    [287, 680, 16, "l"],
-    [313, 704, 16, "l"],
-    [259, 716, 14, "l"],
-    [287, 719, 15, "l"],
-    [343, 725, 16, "l"],
-    [310, 746, 17, "l"],
-    [324, 892, 20, "l"],
-    [357, 902, 18, "l"],
-    [304, 923, 17, "l"],
-    [398, 888, 15, "l"],
-    [393, 931, 11, "l"],
-    [432, 797, 14, "l"],
-    [448, 826, 14, "l"],
-    [59, 152, 23, "l"],
-    [120, 131, 17, "l"],
-    [124, 166, 15, "l"],
-    [102, 82, 16, "l"],
-    [81, 59, 17, "l"],
-    [376, 80, 15, "l"],
-    [224, 87, 69, "r", 56],
-    [432, 41, 40, "r"],
-  ];
+  const FLOATERS = root.PondBedReal.floaters;
   const LOTUS = FLOATERS.filter((f) => f[3] === "f" && f[2] > 25);
   // Flowers, buds and petals have pointed tips, so their ellipses are grown a little to take the tips in.
   const grow = (f) =>
@@ -794,15 +696,7 @@
   }
 
   // Where crabs live, in painting px [x, y, rx, ry]: the rocks that break the surface and the mossy banks around them.
-  const CRAB_HOMES = [
-    [224, 87, 58, 46],
-    [432, 41, 32, 30],
-    [1536, 740, 50, 40],
-    [1639, 628, 42, 46],
-    [120, 190, 58, 30],
-    [1560, 830, 80, 40],
-    [1262, 862, 62, 34],
-  ];
+  const CRAB_HOMES = root.PondBedReal.crabHomes;
   // A small crab: it scuttles sideways about its rock or bank, rests with claws raised, now and then waves one,
   // and bolts for the water and dives when something startles it, coming up again somewhere else a while later.
   class Crab {
@@ -1071,7 +965,6 @@
       this.look.shadowDir = [0.7, 0.72];
       this.pose = new Float32Array((BODY.segments + 1) * 4);
       this.spots = [];
-      this.finTint = PALETTES.map((p) => [...rgb(p.fin), 0.9]);
     }
     dragonflyWeather(settings) {
       return (
@@ -1555,13 +1448,14 @@
               girth,
               kind,
             ) / BODY.half;
+        const shade = bodyShade(kind);
         f.light = {
           species: f.species,
           seed: f.seed,
           palette: f.palette,
           widths,
-          metal: kind === "ogon" ? 1 : 0,
-          gloss: kind === "ogon" ? 0.36 : kind === "karasu" ? 0.16 : 0.5,
+          metal: shade.metal,
+          gloss: shade.gloss,
         };
       }
       return f.light;
@@ -1589,12 +1483,7 @@
         pal = fishPalette(f),
         slender = pal.kind === "silvercarp",
         finDef = R.sprites[pal.kind === "utsuri" ? "finMoto" : "fin"];
-      const tint =
-        pal.kind === "utsuri"
-          ? [1, 1, 1, 0.92]
-          : f.species === "silvercarp"
-            ? [...rgb(pal.fin), 0.85]
-            : this.finTint[f.palette];
+      const tint = finTint(f.palette, pal, f.species);
       const base =
         1.05 -
         0.6 * clamp(bl / 1.4, 0, 1) +

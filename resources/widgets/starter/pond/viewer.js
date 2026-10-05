@@ -22,7 +22,7 @@ const reducedMotion = () =>
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function mountPond(host, config) {
-  const { PondCore, PondArt, PondGL, PondScene } = window;
+  const { PondCore, PondArtReal, PondGL, PondScene } = window;
   const { createFish, randomSeed, createSilverCarpShoal, clamp } = PondCore;
 
   const canvas = document.createElement("canvas");
@@ -62,7 +62,7 @@ export function mountPond(host, config) {
     createSilverCarpShoal(),
     true,
   );
-  const sprites = PondArt.miscSprites();
+  const sprites = PondArtReal.miscSprites();
   const spriteCache = new Map();
   let view = canvas;
   let renderer = null;
@@ -92,7 +92,7 @@ export function mountPond(host, config) {
     const key = `${fishSprite.species || "koi"}:${fishSprite.palette}:${fishSprite.seed}`;
     let cached = spriteCache.get(key);
     if (!cached) {
-      cached = PondArt.fishSprite(fishSprite, PondGL.FISH_PPU);
+      cached = PondArtReal.fishSprite(fishSprite, PondGL.FISH_PPU);
       spriteCache.set(key, cached);
     }
     return cached;
