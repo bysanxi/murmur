@@ -24,6 +24,7 @@
     ringSprite,
     streakSprite,
   } = root.PondArt;
+  const layerCache = new Map();
   // Modern color-ink. Flat blocks only: sumi, mineral green, flower-blue, vermillion,
   // with paper white and pale jade as the light steps. No gold, no pink, no bright green.
   // A steep 255→0 band feathers into a wet edge; interior alpha stays put. Moss dots sit on

@@ -16,6 +16,7 @@ import { Box, Text } from "@radix-ui/themes";
 import { useWidgetsStore } from "../hooks";
 import { css } from "@emotion/react";
 import { DeskulptWidgets } from "@deskulpt/bindings";
+import { currentMonitorFrame, listenMonitorScale } from "../monitorFrame";
 
 const styles = {
   wrapper: css({
@@ -96,8 +97,8 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
     height: settings.height,
   });
   const [viewport, setViewport] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width: settings.width,
+    height: settings.height,
   });
   const fullscreenRef = useRef(settings.fullscreen);
   fullscreenRef.current = settings.fullscreen;
@@ -113,16 +114,18 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
 
   useEffect(() => {
     if (!settings.fullscreen) return;
-    const publish = () => {
+    let unlisten = () => {};
+    let disposed = false;
+    const publish = async () => {
       if (!fullscreenRef.current) return;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      setViewport({ width, height });
+      const frame = await currentMonitorFrame();
+      if (!frame || !fullscreenRef.current) return;
+      setViewport(frame);
       if (
         settings.x === 0 &&
         settings.y === 0 &&
-        settings.width === width &&
-        settings.height === height
+        settings.width === frame.width &&
+        settings.height === frame.height
       ) {
         return;
       }
@@ -130,13 +133,23 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
         fullscreenFrame: true,
         x: 0,
         y: 0,
-        width,
-        height,
+        width: frame.width,
+        height: frame.height,
       }).catch(logger.error);
     };
-    publish();
-    window.addEventListener("resize", publish);
-    return () => window.removeEventListener("resize", publish);
+    void publish();
+    void listenMonitorScale(() => {
+      if (!disposed) void publish();
+    })
+      .then((stop) => {
+        if (disposed) stop();
+        else unlisten = stop;
+      })
+      .catch(logger.error);
+    return () => {
+      disposed = true;
+      unlisten();
+    };
   }, [
     id,
     settings.fullscreen,
@@ -279,6 +292,7 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
                 y={frame.y}
                 width={frame.width}
                 height={frame.height}
+                config={settings.config}
               />
             )}
           </ErrorBoundary>

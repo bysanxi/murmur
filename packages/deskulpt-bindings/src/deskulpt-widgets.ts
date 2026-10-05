@@ -236,7 +236,79 @@ description?: string;
 /**
  * URL to the homepage of the widget.
  */
-homepage?: string }
+homepage?: string;
+/**
+ * Settings this widget declares for itself.
+ */
+options?: WidgetSettingSpec[] }
+
+/**
+ * A value stored for one widget-specific setting.
+ */
+export type WidgetConfigValue = boolean | number | string
+
+/**
+ * The kind of control a widget setting uses.
+ */
+export type WidgetSettingKind = "bool" | "number" | "text" | "select"
+
+/**
+ * One choice of a select setting.
+ */
+export type WidgetSettingChoice = { 
+/**
+ * The stored value.
+ */
+value: string; 
+/**
+ * The label shown in the manager.
+ */
+label: string }
+
+/**
+ * One setting a widget declares in its manifest.
+ */
+export type WidgetSettingSpec = { 
+/**
+ * Storage key. The widget reads this from its config prop.
+ */
+key: string; 
+/**
+ * Label shown in the manager.
+ */
+label: string; 
+/**
+ * Which control to show.
+ */
+type: WidgetSettingKind; 
+/**
+ * Value used until the user sets one.
+ */
+default?: WidgetConfigValue; 
+/**
+ * Inclusive lower bound for a number.
+ */
+min?: number; 
+/**
+ * Inclusive upper bound for a number.
+ */
+max?: number; 
+/**
+ * Increment for a number. Omitted means 1.
+ */
+step?: number; 
+/**
+ * Another setting key that has to match whenValue before this one can be edited.
+ */
+whenKey?: string; 
+/**
+ * Required value of whenKey.
+ */
+whenValue?: WidgetConfigValue; 
+/**
+ * Choices for a select.
+ */
+options?: WidgetSettingChoice[] }
 
 /**
  * An author of a Deskulpt widget.
@@ -330,7 +402,11 @@ windowedWidth: number;
 /**
  * Height to restore when leaving fullscreen.
  */
-windowedHeight: number }
+windowedHeight: number;
+/**
+ * Values for the settings this widget declares.
+ */
+config: { [key in string]: WidgetConfigValue } }
 
 /**
  * A patch for partial updates to [`WidgetSettings`].
@@ -376,7 +452,11 @@ fullscreen?: boolean;
  * When set, `x`, `y`, `width`, and `height` are the canvas viewport and apply
  * only while fullscreen is still on.
  */
-fullscreenFrame?: boolean }
+fullscreenFrame?: boolean;
+/**
+ * Keys to merge into the widget config. Other widget-specific values stay.
+ */
+config?: { [key in string]: WidgetConfigValue } }
 
 // =============================================================================
 // Events

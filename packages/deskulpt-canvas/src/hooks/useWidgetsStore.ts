@@ -8,6 +8,7 @@ interface WidgetProps {
   y: number;
   width: number;
   height: number;
+  config?: Record<string, DeskulptWidgets.WidgetConfigValue>;
 }
 
 interface WidgetState {

@@ -34,6 +34,8 @@ export default {
     zIndex: "Z-index",
     opacity: "Opacity (%)",
     backgroundOpacity: "Background opacity (%)",
+    sharedSettings: "Shared",
+    ownSettings: "This widget",
   },
   manifest: {
     name: "Name",

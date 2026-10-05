@@ -63,6 +63,7 @@ impl<R: Runtime> WidgetsManager<R> {
             if let Some(persisted) = persisted_catalog.0.remove(k) {
                 v.settings = persisted.settings;
             }
+            v.fill_option_defaults();
         });
 
         let render_worker = RenderWorkerHandle::new(app_handle.clone());

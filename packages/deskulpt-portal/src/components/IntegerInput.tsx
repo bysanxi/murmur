@@ -40,7 +40,7 @@ const IntegerInput = ({
 }: IntegerInputProps) => {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const targetValue = Number(event.target.value);
-    if (!Number.isInteger(targetValue)) return;
+    if (!Number.isFinite(targetValue)) return;
     onValueChange(snap(targetValue, min, max, step));
   };
 

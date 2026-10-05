@@ -2,15 +2,20 @@
 // The overflow check runs before any texture write.
 
 export function decodeBed(url) {
-  const image = new Image();
-  image.src = url;
-  if (typeof image.decode === "function")
-    return image.decode().then(() => image);
   return new Promise((resolve, reject) => {
-    image.addEventListener("load", () => resolve(image), { once: true });
+    const image = new Image();
+    image.addEventListener(
+      "load",
+      () => {
+        if (image.naturalWidth) resolve(image);
+        else reject(new Error("bed"));
+      },
+      { once: true },
+    );
     image.addEventListener("error", () => reject(new Error("bed")), {
       once: true,
     });
+    image.src = url;
   });
 }
 
@@ -68,9 +73,15 @@ export function createStyleSwap(ctx) {
 
   function requestStyle(name) {
     const next = ctx.styles[name];
+    if (!next || next.name === ctx.style().name) return;
     const renderer = ctx.renderer();
     const scene = ctx.scene();
-    if (!next || !renderer || !scene || next.name === ctx.style().name) return;
+    if (!renderer || !scene) {
+      ctx.setStyle(next);
+      ctx.setSprites(next.art.miscSprites());
+      ctx.reloadBed?.();
+      return;
+    }
     const token = ++switchToken;
     prepareStyle(next).then(
       (prepared) => {

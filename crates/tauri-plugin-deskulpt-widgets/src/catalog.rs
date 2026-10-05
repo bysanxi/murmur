@@ -87,6 +87,91 @@ pub struct WidgetManifest {
     /// Initial z-index, used only when the widget is first added.
     #[serde(default, skip_serializing)]
     pub z_index: Option<i16>,
+    /// Settings this widget declares for itself.
+    ///
+    /// Shared layout settings live on [`WidgetSettings`]. These are extra
+    /// fields only this widget understands. An empty list means the widget
+    /// has no settings of its own.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<WidgetSettingSpec>,
+}
+
+/// A value stored for one widget-specific setting.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, specta::Type)]
+#[serde(untagged)]
+pub enum WidgetConfigValue {
+    /// A checkbox.
+    Bool(bool),
+    /// A number.
+    Number(f64),
+    /// Text, or the value of a select.
+    Text(String),
+}
+
+/// The kind of control a widget setting uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WidgetSettingKind {
+    /// A checkbox.
+    Bool,
+    /// A number.
+    Number,
+    /// A single line of text.
+    Text,
+    /// One of [`WidgetSettingSpec::options`].
+    Select,
+}
+
+/// One choice of a select setting.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WidgetSettingChoice {
+    /// The stored value.
+    pub value: String,
+    /// The label shown in the manager.
+    pub label: String,
+}
+
+/// One setting a widget declares in its manifest.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WidgetSettingSpec {
+    /// Storage key. The widget reads this from its `config` prop.
+    pub key: String,
+    /// Label shown in the manager. The widget supplies the wording.
+    pub label: String,
+    /// Which control to show.
+    #[serde(rename = "type")]
+    pub kind: WidgetSettingKind,
+    /// Value used until the user sets one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = WidgetConfigValue)]
+    pub default: Option<WidgetConfigValue>,
+    /// Inclusive lower bound for a number.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = f64)]
+    pub min: Option<f64>,
+    /// Inclusive upper bound for a number.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = f64)]
+    pub max: Option<f64>,
+    /// Increment for a number. Omitted means 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = f64)]
+    pub step: Option<f64>,
+    /// Another setting key that has to match [`Self::when_value`] before this
+    /// one can be edited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = String)]
+    pub when_key: Option<String>,
+    /// Required value of [`Self::when_key`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = WidgetConfigValue)]
+    pub when_value: Option<WidgetConfigValue>,
+    /// Choices for a select.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = Vec<WidgetSettingChoice>)]
+    pub options: Option<Vec<WidgetSettingChoice>>,
 }
 
 impl WidgetManifest {
@@ -172,6 +257,12 @@ pub struct WidgetSettings {
     pub windowed_width: u32,
     /// Height to restore when leaving fullscreen.
     pub windowed_height: u32,
+    /// Values for the settings this widget declares.
+    ///
+    /// Keys match [`WidgetSettingSpec::key`]. Missing keys are filled from the
+    /// manifest default and are not written over once the user has set them.
+    #[serde(default)]
+    pub config: BTreeMap<String, WidgetConfigValue>,
 }
 
 impl Default for WidgetSettings {
@@ -190,6 +281,7 @@ impl Default for WidgetSettings {
             windowed_y: 0,
             windowed_width: 300,
             windowed_height: 200,
+            config: BTreeMap::new(),
         }
     }
 }
@@ -232,6 +324,11 @@ pub struct WidgetSettingsPatch {
     /// restored size.
     #[specta(optional, type = bool)]
     pub fullscreen_frame: Option<bool>,
+    /// Keys to merge into [`WidgetSettings::config`].
+    ///
+    /// Only the keys present here change. Other widget-specific values stay.
+    #[specta(optional, type = BTreeMap<String, WidgetConfigValue>)]
+    pub config: Option<BTreeMap<String, WidgetConfigValue>>,
 }
 
 impl WidgetSettings {
@@ -339,7 +436,27 @@ impl WidgetSettings {
             dirty = true;
         }
         dirty |= set_if_changed(&mut self.fullscreen, patch.fullscreen);
+        if let Some(config) = patch.config {
+            for (key, value) in config {
+                if self.config.get(&key) != Some(&value) {
+                    self.config.insert(key, value);
+                    dirty = true;
+                }
+            }
+        }
         dirty
+    }
+
+    /// Insert manifest defaults for keys the user has not set.
+    pub fn fill_defaults(&mut self, manifest: &WidgetManifest) {
+        for spec in &manifest.options {
+            if self.config.contains_key(&spec.key) {
+                continue;
+            }
+            if let Some(default) = &spec.default {
+                self.config.insert(spec.key.clone(), default.clone());
+            }
+        }
     }
 
     /// Check if the widget covers the given point geometrically.
@@ -374,11 +491,22 @@ impl Widget {
     /// If settings are not provided, they will be derived from the manifest or
     /// set to default.
     fn new(manifest: Outcome<WidgetManifest>, settings: Option<WidgetSettings>) -> Self {
-        let settings = settings.unwrap_or_else(|| match &manifest {
+        let mut settings = settings.unwrap_or_else(|| match &manifest {
             Outcome::Ok(manifest) => WidgetSettings::from_manifest(manifest),
             Outcome::Err(_) => WidgetSettings::default(),
         });
+        if let Outcome::Ok(manifest) = &manifest {
+            settings.fill_defaults(manifest);
+        }
         Self { manifest, settings }
+    }
+
+    /// Fill widget-specific defaults after the manifest or saved settings
+    /// change.
+    pub(crate) fn fill_option_defaults(&mut self) {
+        if let Outcome::Ok(manifest) = &self.manifest {
+            self.settings.fill_defaults(manifest);
+        }
     }
 }
 
@@ -401,6 +529,7 @@ impl WidgetCatalog {
 
         if let Some(widget) = self.0.get_mut(id) {
             widget.manifest = manifest.into();
+            widget.fill_option_defaults();
         } else {
             let widget = Widget::new(manifest.into(), None);
             self.0.insert(id.to_string(), widget);
@@ -442,5 +571,66 @@ impl WidgetCatalog {
 
         *self = new_catalog;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn turtles() -> WidgetSettingSpec {
+        WidgetSettingSpec {
+            key: "turtles".into(),
+            label: "乌龟".into(),
+            kind: WidgetSettingKind::Bool,
+            default: Some(WidgetConfigValue::Bool(true)),
+            min: None,
+            max: None,
+            step: None,
+            when_key: None,
+            when_value: None,
+            options: None,
+        }
+    }
+
+    #[test]
+    fn widget_config_keeps_user_values_and_fills_new_defaults() {
+        let manifest = WidgetManifest {
+            options: vec![turtles()],
+            ..WidgetManifest::default()
+        };
+        let mut settings = WidgetSettings::default();
+        settings.fill_defaults(&manifest);
+        assert_eq!(
+            settings.config.get("turtles"),
+            Some(&WidgetConfigValue::Bool(true))
+        );
+
+        let mut patch = WidgetSettingsPatch::default();
+        patch.config = Some(BTreeMap::from([(
+            "turtles".into(),
+            WidgetConfigValue::Bool(false),
+        )]));
+        assert!(settings.apply_patch(patch));
+        settings.fill_defaults(&manifest);
+        assert_eq!(
+            settings.config.get("turtles"),
+            Some(&WidgetConfigValue::Bool(false))
+        );
+
+        let mut other = WidgetSettingsPatch::default();
+        other.config = Some(BTreeMap::from([(
+            "crabs".into(),
+            WidgetConfigValue::Bool(false),
+        )]));
+        assert!(settings.apply_patch(other));
+        assert_eq!(
+            settings.config.get("turtles"),
+            Some(&WidgetConfigValue::Bool(false))
+        );
+        assert_eq!(
+            settings.config.get("crabs"),
+            Some(&WidgetConfigValue::Bool(false))
+        );
     }
 }

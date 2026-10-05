@@ -64,7 +64,9 @@ export function mountPond(host, config) {
     createSilverCarpShoal(),
     true,
   );
-  let style = PondStyles.real;
+  const styleName =
+    config && typeof config.style === "string" ? config.style : "";
+  let style = PondStyles[styleName] || PondStyles.real;
   const spriteCaches = new Map();
   let sprites = style.art.miscSprites();
   let view = canvas;
@@ -143,7 +145,23 @@ export function mountPond(host, config) {
       currentBed = image;
     },
     stopped: () => stopped,
+    reloadBed() {
+      loadBed();
+    },
   });
+
+  let bedToken = 0;
+  let scenePlaced = false;
+  function loadBed() {
+    const token = ++bedToken;
+    const image = new Image();
+    image.addEventListener("load", () => {
+      if (stopped || token !== bedToken || !image.naturalWidth) return;
+      createPond(image);
+      if (!frameId) frameId = requestAnimationFrame(frame);
+    });
+    image.src = style.bed.image;
+  }
 
   function createPond(bedImage) {
     currentBed = bedImage;
@@ -168,7 +186,12 @@ export function mountPond(host, config) {
     }
     if (scene) scene.R = renderer;
     else scene = new PondScene.PondScene(renderer, simulation);
+    scene.setStyle(style);
     size();
+    if (!scenePlaced) {
+      scene.placeBed();
+      scenePlaced = true;
+    }
     scene.update(0, settings);
     scene.setLook(settings.weather, settings.night, undefined, settings);
     simulation.allFish.forEach((item) => {
@@ -200,13 +223,6 @@ export function mountPond(host, config) {
 
   const observer = new ResizeObserver(() => size());
   observer.observe(host);
-
-  const bed = new Image();
-  bed.addEventListener("load", () => {
-    if (stopped || !bed.naturalWidth) return;
-    createPond(bed);
-    frameId = requestAnimationFrame(frame);
-  });
 
   const pace = (speed) =>
     settings.quality === "eco" ? Math.min(speed, 0.45) : speed;
@@ -255,7 +271,7 @@ export function mountPond(host, config) {
     if (typeof next.style === "string") requestStyle(next.style);
   }
   setConfig(config);
-  bed.src = style.bed.image;
+  loadBed();
 
   return {
     setConfig,

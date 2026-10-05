@@ -34,6 +34,8 @@ export default {
     zIndex: "层级",
     opacity: "不透明度 (%)",
     backgroundOpacity: "背景不透明度 (%)",
+    sharedSettings: "通用",
+    ownSettings: "本组件",
   },
   manifest: {
     name: "名称",

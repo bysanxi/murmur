@@ -4,6 +4,13 @@ import WidgetManifest from "../WidgetManifest";
 import { LuFolderOpen, LuRepeat } from "react-icons/lu";
 import { DeskulptCore, DeskulptWidgets } from "@deskulpt/bindings";
 import { logger, useTranslation } from "@deskulpt/utils";
+import { css } from "@emotion/react";
+
+const styles = {
+  details: css({
+    "[data-radix-scroll-area-viewport] > div": { width: "100%" },
+  }),
+};
 
 interface ManifestProps {
   id: string;
@@ -19,8 +26,15 @@ const Manifest = ({ id }: ManifestProps) => {
   };
 
   return (
-    <Flex direction="column" gap="2" pl="2">
-      <Flex align="center" justify="between">
+    <Flex
+      direction="column"
+      gap="2"
+      pl="2"
+      height="100%"
+      minHeight="0"
+      overflow="hidden"
+    >
+      <Flex align="center" justify="between" flexShrink="0">
         <Badge color={widget?.manifest.type === "ok" ? "gray" : "ruby"}>
           {id}
         </Badge>
@@ -57,8 +71,13 @@ const Manifest = ({ id }: ManifestProps) => {
         </Flex>
       </Flex>
 
-      <ScrollArea asChild>
-        <Box height="200px" pr="3" pb="3">
+      <ScrollArea
+        scrollbars="vertical"
+        type="hover"
+        css={styles.details}
+        style={{ flex: 1, minHeight: 0, height: "auto" }}
+      >
+        <Box pr="3" pb="2">
           {widget?.manifest.type === "ok" ? (
             <WidgetManifest manifest={widget.manifest.content} />
           ) : (

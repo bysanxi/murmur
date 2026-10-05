@@ -4,6 +4,7 @@ import { useWidgetsStore } from "../../hooks";
 import IntegerInput from "../IntegerInput";
 import { css } from "@emotion/react";
 import { DeskulptWidgets } from "@deskulpt/bindings";
+import OwnSettings from "./OwnSettings";
 import { useTranslation } from "@deskulpt/utils";
 
 const styles = {
@@ -173,52 +174,59 @@ interface SettingsProps {
 
 const Settings = ({ id }: SettingsProps) => {
   const { t } = useTranslation();
+
   return (
-    <Table.Root size="1" layout="fixed" css={styles.table}>
-      <Table.Body>
-        <Table.Row align="center">
-          <Table.RowHeaderCell>{t("widgets.position")}</Table.RowHeaderCell>
-          <Table.Cell>
-            <Flex gap="1" align="center">
-              <X id={id} />
-              <LuX size={12} color="var(--gray-11)" />
-              <Y id={id} />
-            </Flex>
-          </Table.Cell>
-        </Table.Row>
-        <Table.Row align="center">
-          <Table.RowHeaderCell>{t("widgets.size")}</Table.RowHeaderCell>
-          <Table.Cell>
-            <Flex gap="1" align="center">
-              <Width id={id} />
-              <LuX size={12} color="var(--gray-11)" />
-              <Height id={id} />
-              <Fullscreen id={id} />
-            </Flex>
-          </Table.Cell>
-        </Table.Row>
-        <Table.Row align="center">
-          <Table.RowHeaderCell>{t("widgets.zIndex")}</Table.RowHeaderCell>
-          <Table.Cell>
-            <ZIndex id={id} />
-          </Table.Cell>
-        </Table.Row>
-        <Table.Row align="center">
-          <Table.RowHeaderCell>{t("widgets.opacity")}</Table.RowHeaderCell>
-          <Table.Cell>
-            <Opacity id={id} />
-          </Table.Cell>
-        </Table.Row>
-        <Table.Row align="center">
-          <Table.RowHeaderCell>
-            {t("widgets.backgroundOpacity")}
-          </Table.RowHeaderCell>
-          <Table.Cell>
-            <BackgroundOpacity id={id} />
-          </Table.Cell>
-        </Table.Row>
-      </Table.Body>
-    </Table.Root>
+    <Flex direction="column" gap="2">
+      <Text size="1" color="gray">
+        {t("widgets.sharedSettings")}
+      </Text>
+      <Table.Root size="1" layout="fixed" css={styles.table}>
+        <Table.Body>
+          <Table.Row align="center">
+            <Table.RowHeaderCell>{t("widgets.position")}</Table.RowHeaderCell>
+            <Table.Cell>
+              <Flex gap="1" align="center">
+                <X id={id} />
+                <LuX size={12} color="var(--gray-11)" />
+                <Y id={id} />
+              </Flex>
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row align="center">
+            <Table.RowHeaderCell>{t("widgets.size")}</Table.RowHeaderCell>
+            <Table.Cell>
+              <Flex gap="1" align="center">
+                <Width id={id} />
+                <LuX size={12} color="var(--gray-11)" />
+                <Height id={id} />
+                <Fullscreen id={id} />
+              </Flex>
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row align="center">
+            <Table.RowHeaderCell>{t("widgets.zIndex")}</Table.RowHeaderCell>
+            <Table.Cell>
+              <ZIndex id={id} />
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row align="center">
+            <Table.RowHeaderCell>{t("widgets.opacity")}</Table.RowHeaderCell>
+            <Table.Cell>
+              <Opacity id={id} />
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row align="center">
+            <Table.RowHeaderCell>
+              {t("widgets.backgroundOpacity")}
+            </Table.RowHeaderCell>
+            <Table.Cell>
+              <BackgroundOpacity id={id} />
+            </Table.Cell>
+          </Table.Row>
+        </Table.Body>
+      </Table.Root>
+      <OwnSettings id={id} />
+    </Flex>
   );
 };
 

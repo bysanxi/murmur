@@ -746,10 +746,10 @@
       const [x, y, rx, ry] = homes()[h];
       return R.imageToScreen(x + u * rx, y + v * ry);
     }
-    emerge(R, homes, taken = []) {
+    emerge(R, open, taken = []) {
       // Surface on a rock or bank no other crab is on, if there is one.
-      const free = homes.filter((h) => !taken.includes(h)),
-        pool = free.length ? free : homes,
+      const free = open.filter((h) => !taken.includes(h)),
+        pool = free.length ? free : open,
         r = this.rnd;
       this.home = pool[Math.floor(r() * pool.length)];
       const a = r() * TAU,
@@ -773,7 +773,7 @@
       this.target = [Math.cos(a) * 1.05, Math.sin(a) * 1.05];
       this.timer = 2;
     }
-    update(dt, R, scale, homes, allowed, scene, taken) {
+    update(dt, R, scale, open, allowed, scene, taken) {
       const r = this.rnd;
       if (!allowed && this.state !== "hidden" && this.state !== "dive") {
         this.state = "flee";
@@ -782,8 +782,8 @@
       }
       if (this.state === "hidden") {
         this.timer -= dt;
-        if (this.timer <= 0 && allowed && homes.length)
-          this.emerge(R, homes, taken);
+        if (this.timer <= 0 && allowed && open.length)
+          this.emerge(R, open, taken);
         return;
       }
       if (this.state === "dive") {
