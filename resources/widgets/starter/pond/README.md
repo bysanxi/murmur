@@ -8,17 +8,25 @@ The first launch copies this directory into the live widgets folder (`target/deb
 
 ## Layout
 
-| File                   | Role                                                                                                                              |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `deskulpt.widget.json` | Manifest. Entry is `index.jsx`. Default geometry is a full-HD-sized wallpaper at z-index `-1`.                                    |
-| `index.jsx`            | React host. Owns the viewport, the sentence, and the mount lifecycle.                                                             |
-| `viewer.js`            | Viewing-only adapter around the engine. Creates the simulation, drives the frame loop, and keeps the last frame across a remount. |
-| `lines.js`             | Time-of-day periods, atmosphere, and the sentence for the current language.                                                       |
-| `vendor/core.js`       | Fish bodies, steering, and `PondSimulation`. Publishes `window.PondCore`.                                                         |
-| `vendor/art.js`        | Canvas 2D sprites for koi, turtles, crabs, and butterflies. Publishes `window.PondArt`.                                           |
-| `vendor/gl.js`         | WebGL2 renderer, with a 2D fallback. Publishes `window.PondGL`.                                                                   |
-| `vendor/scene.js`      | Places creatures, lilies, and weather on top of the renderer. Publishes `window.PondScene`.                                       |
-| `vendor/pond-data.js`  | The pond photograph as a JPEG data URL on `window.POND_IMAGE_REAL`.                                                               |
+| File                        | Role                                                                                                                              |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `deskulpt.widget.json`      | Manifest. Entry is `index.jsx`. Default geometry is a full-HD-sized wallpaper at z-index `-1`.                                    |
+| `index.jsx`                 | React host. Owns the viewport, the sentence, and the mount lifecycle.                                                             |
+| `viewer.js`                 | Viewing-only adapter around the engine. Creates the simulation, drives the frame loop, and keeps the last frame across a remount. |
+| `lines.js`                  | Time-of-day periods, atmosphere, and the sentence for the current language.                                                       |
+| `vendor/core.js`            | Fish bodies, steering, and `PondSimulation`. Publishes `window.PondCore`.                                                         |
+| `vendor/art.js`             | Shared body formulas and weather sprites. Publishes `window.PondArt`.                                                             |
+| `vendor/art-real.js`        | Realistic creatures.                                                                                                              |
+| `vendor/art-xieyi.js`       | Ink-wash creatures.                                                                                                               |
+| `vendor/bed-real.js`        | Realistic bed coordinates and `POND_IMAGE_REAL`.                                                                                  |
+| `vendor/bed-xieyi.js`       | Ink bed coordinates and `POND_IMAGE_XIEYI`.                                                                                       |
+| `vendor/look-*.js`          | Fin tint and body gloss for one style.                                                                                            |
+| `vendor/styles.js`          | `window.PondStyles`, the registry the host switches by name.                                                                      |
+| `vendor/gl.js`              | WebGL2 renderer, with a 2D fallback. Publishes `window.PondGL`.                                                                   |
+| `vendor/scene.js`           | Places creatures, lilies, and weather on top of the renderer. Publishes `window.PondScene`.                                       |
+| `vendor/pond-data.js`       | The realistic pond photograph as a JPEG data URL on `window.POND_IMAGE_REAL`.                                                     |
+| `vendor/pond-data-xieyi.js` | The ink pond photograph on `window.POND_IMAGE_XIEYI`.                                                                             |
+| `style-swap.js`             | Decodes the next bed and repaints sprites before one frame commits the swap.                                                      |
 
 The engine is the fishwallpaper implementation, trimmed to a viewing pond. Feeding, audio, hand-drawn patterns, city weather, and saved fish are not wired up.
 
@@ -64,7 +72,7 @@ The output is four channels: `albedo` carries colour and alpha, `shade` static s
 
 `fishSprite()` composites the finished sprite: hand-drawn marks go on with `source-atop`, the tail fin is alpha-blended into the body per pixel, and vector details follow — gill covers, nostrils, barbels, and eyes built from four radial gradients.
 
-Caching happens at two levels. `layerCache` holds the expensive per-pixel work keyed by `variety:palette:seed:ppu`, with an LRU of 90; `viewer.js` caches the composited canvas by `species:palette:seed`.
+Caching happens at two levels. Each style keeps its own `layerCache` for the per-pixel work, keyed by `variety:palette:seed:ppu`, with an LRU of 90. `viewer.js` keeps a separate fish-canvas cache per style, keyed by `species:palette:seed`, so switching back does not repaint. The manifest option `style` chooses `real` (写实, the default) or `xieyi` (写意).
 
 The remaining creatures follow one rule: **things that move are vector parts, things that need texture are painted per pixel**. The shell is another per-pixel piece — 13 scute centres form Voronoi seams, with growth rings and a domed light falloff — but limbs, head, and tail are five vector parts rotated by swim phase. Butterflies, dragonflies, and crabs are vector parts too.
 

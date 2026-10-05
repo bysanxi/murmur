@@ -8,17 +8,26 @@
 
 ## 文件
 
-| 文件                   | 职责                                                             |
-| ---------------------- | ---------------------------------------------------------------- |
-| `deskulpt.widget.json` | 清单。入口是 `index.jsx`。默认尺寸按壁纸填写，层级为 `-1`。      |
-| `index.jsx`            | React 宿主。管视口、那句文案，以及挂载和卸载。                   |
-| `viewer.js`            | 观赏用的适配层。建立模拟、驱动帧循环，并在重新挂载时留住上一帧。 |
-| `lines.js`             | 时段、气氛，以及当前语言下的句子。                               |
-| `vendor/core.js`       | 鱼的身体、转向和 `PondSimulation`。挂到 `window.PondCore`。      |
-| `vendor/art.js`        | 用 Canvas 2D 画锦鲤、龟、蟹、蝴蝶的精灵。挂到 `window.PondArt`。 |
-| `vendor/gl.js`         | WebGL2 渲染器，失败时退回 2D。挂到 `window.PondGL`。             |
-| `vendor/scene.js`      | 把生物、浮萍和天气摆到渲染器上。挂到 `window.PondScene`。        |
-| `vendor/pond-data.js`  | 池塘照片，一张 JPEG data URL，放在 `window.POND_IMAGE_REAL`。    |
+| 文件                        | 职责                                                             |
+| --------------------------- | ---------------------------------------------------------------- |
+| `deskulpt.widget.json`      | 清单。入口是 `index.jsx`。默认尺寸按壁纸填写，层级为 `-1`。      |
+| `index.jsx`                 | React 宿主。管视口、那句文案，以及挂载和卸载。                   |
+| `viewer.js`                 | 观赏用的适配层。建立模拟、驱动帧循环，并在重新挂载时留住上一帧。 |
+| `lines.js`                  | 时段、气氛，以及当前语言下的句子。                               |
+| `vendor/core.js`            | 鱼的身体、转向和 `PondSimulation`。挂到 `window.PondCore`。      |
+| `vendor/art.js`             | 公共的体型公式和雨雪涟漪。挂到 `window.PondArt`。                |
+| `vendor/art-real.js`        | 写实生物。                                                       |
+| `vendor/art-xieyi.js`       | 写意生物。                                                       |
+| `vendor/bed-real.js`        | 写实底图坐标，图片是 `POND_IMAGE_REAL`。                         |
+| `vendor/bed-xieyi.js`       | 写意底图坐标，图片是 `POND_IMAGE_XIEYI`。                        |
+| `vendor/look-real.js`       | 写实的胸鳍色和身体高光。                                         |
+| `vendor/look-xieyi.js`      | 写意的胸鳍色和身体高光。                                         |
+| `vendor/styles.js`          | `window.PondStyles`。宿主按名字切换。                            |
+| `vendor/gl.js`              | WebGL2 渲染器，失败时退回 2D。挂到 `window.PondGL`。             |
+| `vendor/scene.js`           | 把生物、浮萍和天气摆到渲染器上。挂到 `window.PondScene`。        |
+| `vendor/pond-data.js`       | 写实池塘照片，JPEG data URL，放在 `window.POND_IMAGE_REAL`。     |
+| `vendor/pond-data-xieyi.js` | 写意池塘照片，放在 `window.POND_IMAGE_XIEYI`。                   |
+| `style-swap.js`             | 先解码新底图、画好贴图，再在一帧里提交切换。                     |
 
 引擎来自 fishwallpaper，只保留观赏。投喂、声音、手绘图案、城市天气和鱼的存档都没有接上。
 
@@ -64,7 +73,7 @@ window.POND_IMAGE_REAL = "data:image/jpeg;base64,...";
 
 `fishSprite()` 再合成成品：手绘图案用 `source-atop` 叠上去，然后逐像素把尾鳍 alpha over 进身体，最后画矢量细节，包括鳃盖、鼻孔、须，以及四层径向渐变拼出的眼睛。
 
-缓存分两级。`layerCache` 按 `品种:palette:seed:ppu` 缓存最贵的逐像素计算，LRU 上限 90；`viewer.js` 按 `species:palette:seed` 缓存合成好的 canvas。
+缓存分两级。每个画风自己的 `layerCache` 按 `品种:palette:seed:ppu` 缓存逐像素计算，LRU 上限 90。`viewer.js` 按画风再分一份鱼的贴图缓存，键是 `species:palette:seed`，来回切换不用重画。清单里的 `style` 选 `real`（写实，默认）或 `xieyi`（写意）。
 
 其余生物遵循一条规律：**要动的用矢量拆件，要质感的用逐像素**。龟壳是另一个逐像素件，13 个盾片中心做 Voronoi 接缝，加生长环和圆顶受光；但四肢、头和尾拆成 5 个矢量部件，按划水相位分别旋转。蝴蝶、蜻蜓、蟹同样是拆件的矢量件。
 

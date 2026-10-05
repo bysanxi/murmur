@@ -31,6 +31,16 @@
       ]
     },
     {
+      "key": "style",
+      "label": "画风",
+      "type": "select",
+      "default": "real",
+      "options": [
+        { "value": "real", "label": "写实" },
+        { "value": "xieyi", "label": "写意" }
+      ]
+    },
+    {
       "key": "rainAmount",
       "label": "雨量",
       "type": "number",
