@@ -8,5 +8,11 @@
       bed: root.PondBedReal,
       look: root.PondLookReal,
     },
+    xieyi: {
+      name: "xieyi",
+      art: root.PondArtXieyi,
+      bed: root.PondBedXieyi,
+      look: root.PondLookXieyi,
+    },
   };
 })(window);
