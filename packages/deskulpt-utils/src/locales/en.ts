@@ -36,6 +36,7 @@ export default {
     backgroundOpacity: "Background opacity (%)",
     sharedSettings: "Shared",
     ownSettings: "This widget",
+    reset: "Reset",
     fontSearch: "Search fonts",
     fontEmpty: "No matching font.",
     cityLocating: "Finding your city…",

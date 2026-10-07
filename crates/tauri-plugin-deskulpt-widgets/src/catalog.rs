@@ -72,20 +72,24 @@ pub struct WidgetManifest {
     /// despite the presence of the manifest file.
     #[serde(default, skip_serializing)]
     pub ignore: bool,
-    /// Initial x in pixels, used only when the widget is first added.
-    #[serde(default, skip_serializing)]
+    /// Initial x in pixels. This is the default for the shared position
+    /// setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<i32>,
-    /// Initial y in pixels, used only when the widget is first added.
-    #[serde(default, skip_serializing)]
+    /// Initial y in pixels. This is the default for the shared position
+    /// setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<i32>,
-    /// Initial width in pixels, used only when the widget is first added.
-    #[serde(default, skip_serializing)]
+    /// Initial width in pixels. This is the default for the shared size
+    /// setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<u32>,
-    /// Initial height in pixels, used only when the widget is first added.
-    #[serde(default, skip_serializing)]
+    /// Initial height in pixels. This is the default for the shared size
+    /// setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<u32>,
-    /// Initial z-index, used only when the widget is first added.
-    #[serde(default, skip_serializing)]
+    /// Initial z-index. This is the default for the shared z-index setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub z_index: Option<i16>,
     /// Settings this widget declares for itself.
     ///

@@ -1,6 +1,7 @@
 import {
   Checkbox,
   Flex,
+  IconButton,
   Select,
   Slider,
   Table,
@@ -9,6 +10,7 @@ import {
 } from "@radix-ui/themes";
 import { css } from "@emotion/react";
 import { ChangeEvent } from "react";
+import { LuRotateCcw } from "react-icons/lu";
 import { DeskulptWidgets } from "@deskulpt/bindings";
 import { useTranslation } from "@deskulpt/utils";
 import { useWidgetsStore } from "../../hooks";
@@ -185,6 +187,11 @@ const OwnControl = ({
   );
 };
 
+const sameValue = (
+  stored: DeskulptWidgets.WidgetConfigValue | undefined,
+  fallback: DeskulptWidgets.WidgetConfigValue | undefined,
+) => stored === undefined || stored === fallback;
+
 const SettingRow = ({
   id,
   spec,
@@ -196,19 +203,38 @@ const SettingRow = ({
   config: Record<string, DeskulptWidgets.WidgetConfigValue> | undefined;
   language: string;
 }) => {
+  const { t } = useTranslation();
+  const fallback = spec.default;
   return (
     <Table.Row align="center">
       <Table.RowHeaderCell>
         {widgetText(spec.label, language)}
       </Table.RowHeaderCell>
       <Table.Cell>
-        <OwnControl
-          id={id}
-          spec={spec}
-          value={config?.[spec.key]}
-          disabled={false}
-          language={language}
-        />
+        <Flex align="center" gap="2">
+          <Flex align="center" flexGrow="1" minWidth="0">
+            <OwnControl
+              id={id}
+              spec={spec}
+              value={config?.[spec.key]}
+              disabled={false}
+              language={language}
+            />
+          </Flex>
+          {fallback !== undefined ? (
+            <IconButton
+              size="1"
+              variant="ghost"
+              color="gray"
+              disabled={sameValue(config?.[spec.key], fallback)}
+              title={t("widgets.reset")}
+              style={{ flexShrink: 0 }}
+              onClick={() => writeConfig(id, spec.key, fallback)}
+            >
+              <LuRotateCcw />
+            </IconButton>
+          ) : null}
+        </Flex>
       </Table.Cell>
     </Table.Row>
   );

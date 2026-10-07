@@ -238,6 +238,26 @@ description?: string;
  */
 homepage?: string;
 /**
+ * Initial x in pixels. Default for the shared position setting.
+ */
+x?: number;
+/**
+ * Initial y in pixels. Default for the shared position setting.
+ */
+y?: number;
+/**
+ * Initial width in pixels. Default for the shared size setting.
+ */
+width?: number;
+/**
+ * Initial height in pixels. Default for the shared size setting.
+ */
+height?: number;
+/**
+ * Initial z-index. Default for the shared z-index setting.
+ */
+zIndex?: number;
+/**
  * Settings this widget declares for itself.
  */
 options?: WidgetSettingSpec[] }

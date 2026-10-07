@@ -36,6 +36,7 @@ export default {
     backgroundOpacity: "背景不透明度 (%)",
     sharedSettings: "通用",
     ownSettings: "本组件",
+    reset: "重置",
     fontSearch: "搜索字体",
     fontEmpty: "没有匹配的字体。",
     cityLocating: "正在定位所在城市…",
