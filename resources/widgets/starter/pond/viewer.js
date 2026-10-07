@@ -1,6 +1,8 @@
 // Viewing-only host for the pond engine in vendor/.
 // The engine comes from the independent fishwallpaper implementation.
 
+import { createCityWeather, parseCity } from "./city.js";
+import { createPondSound } from "./sound.js";
 import { createStyleSwap } from "./style-swap.js";
 
 let parkedFrame = null;
@@ -46,8 +48,20 @@ export function mountPond(host, config) {
     rainAmount: 0.35,
     snowAmount: 0.35,
     followTime: true,
+    cityWeather: false,
+    cityLive: null,
   };
   const manual = { weather: "sunny", night: false, speed: 0.7 };
+  const pondSound = createPondSound(() => settings);
+  const cityClient = createCityWeather({
+    weatherFromCode: PondCore.weatherFromCode,
+    clamp,
+    onWeather(next) {
+      settings.cityLive = next;
+      applyCity();
+      pondSound.noteScene();
+    },
+  });
 
   const fish = Array.from({ length: 24 }, (_, i) => ({
     ...createFish(i, randomSeed(i * 7 + 3)),
@@ -216,7 +230,7 @@ export function mountPond(host, config) {
     simulation.events.splice(0);
     scene.setLook(settings.weather, settings.night, dt, settings);
     scene.update(dt, settings);
-    scene.events.splice(0);
+    for (const event of scene.events.splice(0)) pondSound.thunder(event);
     scene.draw(settings);
     renderer.render(time, dt, scene.look);
   }
@@ -227,10 +241,19 @@ export function mountPond(host, config) {
   const pace = (speed) =>
     settings.quality === "eco" ? Math.min(speed, 0.45) : speed;
 
+  function applyCity() {
+    const live = settings.cityLive;
+    if (!settings.cityWeather || !live?.weather) return false;
+    settings.weather = live.weather;
+    if (live.rainAmount != null) settings.rainAmount = live.rainAmount;
+    if (live.snowAmount != null) settings.snowAmount = live.snowAmount;
+    return true;
+  }
+
   function applyManual() {
-    settings.weather = manual.weather;
     settings.night = manual.night;
     settings.speed = pace(manual.speed);
+    if (!applyCity()) settings.weather = manual.weather;
   }
 
   function setConfig(next) {
@@ -251,6 +274,8 @@ export function mountPond(host, config) {
     }
     if (typeof next.followTime === "boolean")
       settings.followTime = next.followTime;
+    if (typeof next.cityWeather === "boolean")
+      settings.cityWeather = next.cityWeather;
     if (["sunny", "cloudy", "rain", "snow"].includes(next.weather))
       manual.weather = next.weather;
     if (typeof next.night === "boolean") manual.night = next.night;
@@ -267,8 +292,12 @@ export function mountPond(host, config) {
       settings.quality = next.quality;
       size();
     }
+    if (!settings.cityWeather) settings.cityLive = null;
     if (!settings.followTime) applyManual();
+    else applyCity();
+    cityClient.setLocation(settings.cityWeather ? parseCity(next.city) : null);
     if (typeof next.style === "string") requestStyle(next.style);
+    pondSound.setHeard(next);
   }
   setConfig(config);
   loadBed();
@@ -277,14 +306,17 @@ export function mountPond(host, config) {
     setConfig,
     setAtmosphere(next) {
       if (!settings.followTime) return;
-      settings.weather = next.weather;
       settings.night = next.night;
       settings.speed = pace(next.speed);
+      if (!applyCity()) settings.weather = next.weather;
+      pondSound.noteScene();
     },
     destroy() {
       stopped = true;
       cancelAnimationFrame(frameId);
       observer.disconnect();
+      cityClient.stop();
+      pondSound.stop();
       parkFrame(view);
     },
   };

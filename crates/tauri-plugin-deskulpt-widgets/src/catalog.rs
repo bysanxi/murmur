@@ -120,6 +120,25 @@ pub enum WidgetSettingKind {
     Text,
     /// One of [`WidgetSettingSpec::options`].
     Select,
+    /// A city search. The stored value is a JSON string with `name`,
+    /// `latitude`, and `longitude`, or an empty string when unset.
+    City,
+    /// A system font. The stored value is a family name, or one of the
+    /// pinned [`WidgetSettingSpec::options`].
+    Font,
+}
+
+/// Wording supplied by a widget.
+///
+/// A string is used for every language. An object is keyed by language, such
+/// as `zh-CN` and `en`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, specta::Type)]
+#[serde(untagged)]
+pub enum WidgetText {
+    /// Labels keyed by language.
+    ByLanguage(BTreeMap<String, String>),
+    /// One wording, used for every language.
+    Plain(String),
 }
 
 /// One choice of a select setting.
@@ -129,7 +148,7 @@ pub struct WidgetSettingChoice {
     /// The stored value.
     pub value: String,
     /// The label shown in the manager.
-    pub label: String,
+    pub label: WidgetText,
 }
 
 /// One setting a widget declares in its manifest.
@@ -139,7 +158,7 @@ pub struct WidgetSettingSpec {
     /// Storage key. The widget reads this from its `config` prop.
     pub key: String,
     /// Label shown in the manager. The widget supplies the wording.
-    pub label: String,
+    pub label: WidgetText,
     /// Which control to show.
     #[serde(rename = "type")]
     pub kind: WidgetSettingKind,
@@ -168,10 +187,25 @@ pub struct WidgetSettingSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(type = WidgetConfigValue)]
     pub when_value: Option<WidgetConfigValue>,
+    /// Another setting key that hides this one when it matches
+    /// [`Self::unless_value`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = String)]
+    pub unless_key: Option<String>,
+    /// Value of [`Self::unless_key`] that hides this setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = WidgetConfigValue)]
+    pub unless_value: Option<WidgetConfigValue>,
     /// Choices for a select.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(type = Vec<WidgetSettingChoice>)]
     pub options: Option<Vec<WidgetSettingChoice>>,
+    /// Title of the box this setting belongs to.
+    ///
+    /// Options that share a group are shown together, in the order they appear.
+    /// Omitted options stay in the ungrouped list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<WidgetText>,
 }
 
 impl WidgetManifest {
@@ -581,7 +615,7 @@ mod tests {
     fn turtles() -> WidgetSettingSpec {
         WidgetSettingSpec {
             key: "turtles".into(),
-            label: "乌龟".into(),
+            label: WidgetText::Plain("乌龟".into()),
             kind: WidgetSettingKind::Bool,
             default: Some(WidgetConfigValue::Bool(true)),
             min: None,
@@ -589,7 +623,10 @@ mod tests {
             step: None,
             when_key: None,
             when_value: None,
+            unless_key: None,
+            unless_value: None,
             options: None,
+            group: None,
         }
     }
 

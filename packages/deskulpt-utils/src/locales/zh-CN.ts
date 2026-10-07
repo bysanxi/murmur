@@ -36,6 +36,10 @@ export default {
     backgroundOpacity: "背景不透明度 (%)",
     sharedSettings: "通用",
     ownSettings: "本组件",
+    fontSearch: "搜索字体",
+    fontEmpty: "没有匹配的字体。",
+    cityLocating: "正在定位所在城市…",
+    cityFailed: "暂时无法确定所在城市。",
   },
   manifest: {
     name: "名称",

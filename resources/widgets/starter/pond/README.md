@@ -24,11 +24,13 @@ The first launch copies this directory into the live widgets folder (`target/deb
 | `vendor/styles.js`          | `window.PondStyles`, the registry the host switches by name.                                                                      |
 | `vendor/gl.js`              | WebGL2 renderer, with a 2D fallback. Publishes `window.PondGL`.                                                                   |
 | `vendor/scene.js`           | Places creatures, lilies, and weather on top of the renderer. Publishes `window.PondScene`.                                       |
+| `vendor/audio.js`           | Synthesised water, weather, and the instrument line. Publishes `window.PondAudio`.                                                |
+| `sound.js`                  | Turns this widget's sound settings into that soundscape, and plays thunder after a drawn bolt.                                    |
 | `vendor/pond-data.js`       | The realistic pond photograph as a JPEG data URL on `window.POND_IMAGE_REAL`.                                                     |
 | `vendor/pond-data-xieyi.js` | The ink pond photograph on `window.POND_IMAGE_XIEYI`.                                                                             |
 | `style-swap.js`             | Decodes the next bed and repaints sprites before one frame commits the swap.                                                      |
 
-The engine is the fishwallpaper implementation, trimmed to a viewing pond. Feeding, audio, hand-drawn patterns, city weather, and saved fish are not wired up.
+The engine is the fishwallpaper implementation, trimmed to a viewing pond. Feeding, hand-drawn patterns, city weather, and saved fish are not wired up. Sound is one of this widget's own settings, played by `sound.js`.
 
 ## Engine assets
 
@@ -48,7 +50,7 @@ Everything else is generated at runtime:
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | Creature sprites | Canvas 2D, painted per pixel or as vectors                                                                                                                                                                                    | `vendor/art.js`                              |
 | Noise textures   | Two 256² textures built once on the CPU: a four-channel tileable value noise for cloud shadow, caustic warp, water beads, and snow; and a slope field from 26 random integer-frequency sines for breeze waves and sun glitter | `noiseData` and `waveData` in `vendor/gl.js` |
-| Sound            | Pure Web Audio synthesis, no audio files (upstream only, not wired up here)                                                                                                                                                   | upstream `audio.js`                          |
+| Sound            | Pure Web Audio synthesis, no audio files. Water, weather, guqin, bowl, and chimes. The choices are this widget's own settings.                                                                                                | `vendor/audio.js`                            |
 
 ## Sprites: how the creatures are painted
 

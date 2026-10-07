@@ -1,6 +1,6 @@
 import { css } from "@emotion/react";
 import { Box, Heading, Table } from "@radix-ui/themes";
-import { PropsWithChildren } from "react";
+import { CSSProperties, PropsWithChildren } from "react";
 
 const styles = {
   root: css({
@@ -12,20 +12,37 @@ const styles = {
     "--table-cell-padding": "var(--space-1) var(--space-2)",
     "--table-cell-min-height": 0,
     "& tr": { "--table-row-box-shadow": "none" },
-    "& th": { width: "240px", paddingLeft: "var(--space-3)" },
+    "& th": {
+      width: "var(--section-label-width, 240px)",
+      paddingLeft: "var(--space-3)",
+    },
   }),
 };
 
 interface SectionTableProps {
   title: string;
+  labelWidth?: string;
 }
 
 const SectionTable = ({
   title,
+  labelWidth,
   children,
 }: PropsWithChildren<SectionTableProps>) => {
   return (
-    <Box position="relative" mt="2" pt="4" pb="2" px="1" css={styles.root}>
+    <Box
+      position="relative"
+      mt="2"
+      pt="4"
+      pb="2"
+      px="1"
+      css={styles.root}
+      style={
+        labelWidth
+          ? ({ "--section-label-width": labelWidth } as CSSProperties)
+          : undefined
+      }
+    >
       <Box
         position="absolute"
         top="calc(-0.5 * var(--heading-line-height-2))"

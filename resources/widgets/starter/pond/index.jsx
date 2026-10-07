@@ -17,8 +17,64 @@ import "./vendor/pond-data-xieyi.js";
 import "./vendor/styles.js";
 import "./vendor/gl.js";
 import "./vendor/scene.js";
+import "./vendor/audio.js";
 import { mountPond } from "./viewer.js";
 import { atmosphereOf, lineOf, subscribeLanguage } from "./lines.js";
+
+const LINE_FONTS = {
+  sans: '"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif',
+  kai: '"KaiTi","STKaiti","Kaiti SC","楷体",serif',
+  song: '"SimSun","Songti SC","STSong","PMingLiU",serif',
+};
+
+const LINE_COLORS = {
+  cream: "251, 249, 236",
+  moon: "232, 240, 236",
+  ink: "36, 42, 38",
+  gold: "232, 214, 170",
+};
+
+function lineFamily(name) {
+  if (LINE_FONTS[name]) return LINE_FONTS[name];
+  if (typeof name === "string" && name) {
+    const safe = name.replaceAll(/["\\]/g, "");
+    return `"${safe}", ${LINE_FONTS.sans}`;
+  }
+  return LINE_FONTS.sans;
+}
+
+function lineLook(config, visible) {
+  const font = LINE_FONTS[config?.lineFont] ? config.lineFont : "custom";
+  const size = Number(config?.lineSize);
+  const alpha = Number(config?.lineAlpha);
+  const color = LINE_COLORS[config?.lineColor] ? config.lineColor : "cream";
+  const place =
+    config?.linePlace === "mid" || config?.linePlace === "high"
+      ? config.linePlace
+      : "low";
+  return {
+    position: "absolute",
+    left: 48,
+    right: 48,
+    margin: 0,
+    textAlign: "center",
+    top: place === "high" ? "12%" : place === "mid" ? "46%" : "auto",
+    bottom: place === "low" ? "9%" : "auto",
+    color: `rgba(${LINE_COLORS[color]}, ${Number.isFinite(alpha) ? Math.min(1, Math.max(0.35, alpha)) : 0.9})`,
+    fontFamily: lineFamily(config?.lineFont),
+    fontSize: Number.isFinite(size) ? Math.min(36, Math.max(14, size)) : 18,
+    lineHeight: 1.6,
+    letterSpacing:
+      font === "kai" ? "0.12em" : font === "song" ? "0.06em" : "0.08em",
+    textShadow:
+      color === "ink"
+        ? "0 1px 8px rgba(251, 249, 236, 0.45)"
+        : "0 1px 10px rgba(16, 28, 24, 0.55)",
+    pointerEvents: "none",
+    opacity: visible ? 1 : 0,
+    transition: "opacity 700ms ease",
+  };
+}
 
 export default function Pond({ config }) {
   const host = useRef(null);
@@ -90,26 +146,7 @@ export default function Pond({ config }) {
           opacity: "var(--nfr-widget-bg-alpha, 1)",
         }}
       />
-      <p
-        style={{
-          position: "absolute",
-          left: 48,
-          right: 48,
-          bottom: "9%",
-          margin: 0,
-          textAlign: "center",
-          color: "rgba(251, 249, 236, 0.9)",
-          fontSize: 18,
-          lineHeight: 1.6,
-          letterSpacing: "0.08em",
-          textShadow: "0 1px 10px rgba(16, 28, 24, 0.55)",
-          pointerEvents: "none",
-          opacity: line === shown ? 1 : 0,
-          transition: "opacity 700ms ease",
-        }}
-      >
-        {shown}
-      </p>
+      <p style={lineLook(config, line === shown)}>{shown}</p>
     </div>
   );
 }

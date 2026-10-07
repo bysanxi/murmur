@@ -250,7 +250,7 @@ export type WidgetConfigValue = boolean | number | string
 /**
  * The kind of control a widget setting uses.
  */
-export type WidgetSettingKind = "bool" | "number" | "text" | "select"
+export type WidgetSettingKind = "bool" | "number" | "text" | "select" | "city" | "font"
 
 /**
  * One choice of a select setting.
@@ -263,7 +263,7 @@ value: string;
 /**
  * The label shown in the manager.
  */
-label: string }
+label: WidgetText }
 
 /**
  * One setting a widget declares in its manifest.
@@ -276,7 +276,7 @@ key: string;
 /**
  * Label shown in the manager.
  */
-label: string; 
+label: WidgetText; 
 /**
  * Which control to show.
  */
@@ -306,9 +306,32 @@ whenKey?: string;
  */
 whenValue?: WidgetConfigValue; 
 /**
+ * Another setting key that hides this one when it matches unlessValue.
+ */
+unlessKey?: string; 
+/**
+ * Value of unlessKey that hides this setting.
+ */
+unlessValue?: WidgetConfigValue; 
+/**
  * Choices for a select.
  */
-options?: WidgetSettingChoice[] }
+options?: WidgetSettingChoice[]; 
+/**
+ * Title of the box this setting belongs to.
+ * 
+ * Options that share a group are shown together, in the order they appear.
+ * Omitted options stay in the ungrouped list.
+ */
+group?: WidgetText }
+
+/**
+ * Wording supplied by a widget.
+ *
+ * A string is used for every language. An object is keyed by language, such
+ * as `zh-CN` and `en`.
+ */
+export type WidgetText = { [key in string]: string } | string
 
 /**
  * An author of a Deskulpt widget.
@@ -497,6 +520,12 @@ export namespace Commands {
    * [`crate::WidgetsManager::fetch_registry_index`].
    */
   export const fetchRegistryIndex = () => invoke<RegistryIndex>("plugin:deskulpt-widgets|fetch_registry_index");
+
+  /**
+   * Family names of the fonts installed on this computer.
+   */
+  export const listFontFamilies = () =>
+    invoke<string[]>("plugin:deskulpt-widgets|list_font_families");
 
   /**
    * Install a widget from the registry.

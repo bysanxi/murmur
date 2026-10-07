@@ -36,6 +36,10 @@ export default {
     backgroundOpacity: "Background opacity (%)",
     sharedSettings: "Shared",
     ownSettings: "This widget",
+    fontSearch: "Search fonts",
+    fontEmpty: "No matching font.",
+    cityLocating: "Finding your city…",
+    cityFailed: "The city could not be determined.",
   },
   manifest: {
     name: "Name",

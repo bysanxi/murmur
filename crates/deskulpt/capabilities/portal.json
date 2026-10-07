@@ -11,6 +11,7 @@
     "deskulpt-settings:allow-update",
     "deskulpt-widgets:allow-fetch-registry-index",
     "deskulpt-widgets:allow-install",
+    "deskulpt-widgets:allow-list-font-families",
     "deskulpt-widgets:allow-preview",
     "deskulpt-widgets:allow-refresh",
     "deskulpt-widgets:allow-refresh-all",

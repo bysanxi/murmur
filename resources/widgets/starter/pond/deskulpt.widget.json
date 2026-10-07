@@ -11,38 +11,133 @@
   "height": 2160,
   "zIndex": -1,
   "options": [
-    { "key": "turtles", "label": "乌龟", "type": "bool", "default": true },
-    { "key": "crabs", "label": "蟹", "type": "bool", "default": true },
+    {
+      "key": "turtles",
+      "label": { "zh-CN": "乌龟", "en": "Turtles" },
+      "type": "bool",
+      "default": true,
+      "group": { "zh-CN": "画面", "en": "Scene" }
+    },
+    {
+      "key": "crabs",
+      "label": { "zh-CN": "蟹", "en": "Crabs" },
+      "type": "bool",
+      "default": true,
+      "group": { "zh-CN": "画面", "en": "Scene" }
+    },
     {
       "key": "butterflies",
-      "label": "蝴蝶与蜻蜓",
+      "label": { "zh-CN": "蝴蝶与蜻蜓", "en": "Butterflies and dragonflies" },
       "type": "bool",
-      "default": true
+      "default": true,
+      "group": { "zh-CN": "画面", "en": "Scene" }
     },
-    { "key": "silverCarp", "label": "青鲢", "type": "bool", "default": true },
+    {
+      "key": "silverCarp",
+      "label": { "zh-CN": "青鲢", "en": "Silver carp" },
+      "type": "bool",
+      "default": true,
+      "group": { "zh-CN": "画面", "en": "Scene" }
+    },
     {
       "key": "quality",
-      "label": "画面品质",
+      "label": { "zh-CN": "画面品质", "en": "Quality" },
       "type": "select",
       "default": "high",
+      "group": { "zh-CN": "画面", "en": "Scene" },
       "options": [
-        { "value": "high", "label": "细腻" },
-        { "value": "eco", "label": "节能" }
+        { "value": "high", "label": { "zh-CN": "细腻", "en": "Fine" } },
+        { "value": "eco", "label": { "zh-CN": "节能", "en": "Eco" } }
       ]
     },
     {
       "key": "style",
-      "label": "画风",
+      "label": { "zh-CN": "画风", "en": "Style" },
       "type": "select",
       "default": "real",
+      "group": { "zh-CN": "画面", "en": "Scene" },
       "options": [
-        { "value": "real", "label": "写实" },
-        { "value": "xieyi", "label": "写意" }
+        { "value": "real", "label": { "zh-CN": "写实", "en": "Realistic" } },
+        { "value": "xieyi", "label": { "zh-CN": "写意", "en": "Ink wash" } }
       ]
     },
     {
+      "key": "lineFont",
+      "label": { "zh-CN": "字体", "en": "Font" },
+      "type": "font",
+      "default": "sans",
+      "group": { "zh-CN": "文字", "en": "Words" },
+      "options": [
+        { "value": "sans", "label": { "zh-CN": "黑体", "en": "Sans" } },
+        { "value": "kai", "label": { "zh-CN": "楷体", "en": "Kai" } },
+        { "value": "song", "label": { "zh-CN": "宋体", "en": "Song" } }
+      ]
+    },
+    {
+      "key": "lineSize",
+      "label": { "zh-CN": "字号", "en": "Size" },
+      "group": { "zh-CN": "文字", "en": "Words" },
+      "type": "number",
+      "default": 18,
+      "min": 14,
+      "max": 36,
+      "step": 1
+    },
+    {
+      "key": "lineColor",
+      "label": { "zh-CN": "颜色", "en": "Color" },
+      "type": "select",
+      "default": "cream",
+      "group": { "zh-CN": "文字", "en": "Words" },
+      "options": [
+        { "value": "cream", "label": { "zh-CN": "米白", "en": "Cream" } },
+        { "value": "moon", "label": { "zh-CN": "月白", "en": "Moon" } },
+        { "value": "ink", "label": { "zh-CN": "墨色", "en": "Ink" } },
+        { "value": "gold", "label": { "zh-CN": "暖金", "en": "Gold" } }
+      ]
+    },
+    {
+      "key": "linePlace",
+      "label": { "zh-CN": "位置", "en": "Place" },
+      "type": "select",
+      "default": "low",
+      "group": { "zh-CN": "文字", "en": "Words" },
+      "options": [
+        { "value": "low", "label": { "zh-CN": "近水", "en": "Low" } },
+        { "value": "mid", "label": { "zh-CN": "居中", "en": "Center" } },
+        { "value": "high", "label": { "zh-CN": "靠上", "en": "High" } }
+      ]
+    },
+    {
+      "key": "lineAlpha",
+      "label": { "zh-CN": "浓淡", "en": "Strength" },
+      "group": { "zh-CN": "文字", "en": "Words" },
+      "type": "number",
+      "default": 0.9,
+      "min": 0.35,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "city",
+      "label": { "zh-CN": "城市", "en": "City" },
+      "type": "city",
+      "default": "",
+      "group": { "zh-CN": "天气", "en": "Weather" }
+    },
+    {
+      "key": "cityWeather",
+      "label": { "zh-CN": "跟随城市", "en": "Follow a city" },
+      "type": "bool",
+      "default": false,
+      "group": { "zh-CN": "天气", "en": "Weather" }
+    },
+    {
       "key": "rainAmount",
-      "label": "雨量",
+      "label": { "zh-CN": "雨量", "en": "Rain" },
+      "group": { "zh-CN": "天气", "en": "Weather" },
+      "unlessKey": "cityWeather",
+      "unlessValue": true,
       "type": "number",
       "default": 0.35,
       "min": 0,
@@ -51,7 +146,10 @@
     },
     {
       "key": "snowAmount",
-      "label": "雪量",
+      "label": { "zh-CN": "雪量", "en": "Snow" },
+      "group": { "zh-CN": "天气", "en": "Weather" },
+      "unlessKey": "cityWeather",
+      "unlessValue": true,
       "type": "number",
       "default": 0.35,
       "min": 0,
@@ -60,35 +158,41 @@
     },
     {
       "key": "followTime",
-      "label": "跟随时间",
+      "label": { "zh-CN": "跟随时间", "en": "Follow the time" },
       "type": "bool",
-      "default": true
+      "default": true,
+      "group": { "zh-CN": "天气", "en": "Weather" }
     },
     {
       "key": "weather",
-      "label": "天气",
+      "label": { "zh-CN": "天气", "en": "Weather" },
       "type": "select",
       "default": "sunny",
+      "group": { "zh-CN": "天气", "en": "Weather" },
       "whenKey": "followTime",
       "whenValue": false,
+      "unlessKey": "cityWeather",
+      "unlessValue": true,
       "options": [
-        { "value": "sunny", "label": "晴" },
-        { "value": "cloudy", "label": "多云" },
-        { "value": "rain", "label": "雨" },
-        { "value": "snow", "label": "雪" }
+        { "value": "sunny", "label": { "zh-CN": "晴", "en": "Sunny" } },
+        { "value": "cloudy", "label": { "zh-CN": "多云", "en": "Cloudy" } },
+        { "value": "rain", "label": { "zh-CN": "雨", "en": "Rain" } },
+        { "value": "snow", "label": { "zh-CN": "雪", "en": "Snow" } }
       ]
     },
     {
       "key": "night",
-      "label": "月下观鱼",
+      "label": { "zh-CN": "月下观鱼", "en": "Moonlight" },
       "type": "bool",
       "default": false,
+      "group": { "zh-CN": "天气", "en": "Weather" },
       "whenKey": "followTime",
       "whenValue": false
     },
     {
       "key": "speed",
-      "label": "游动速度",
+      "label": { "zh-CN": "游动速度", "en": "Swim speed" },
+      "group": { "zh-CN": "天气", "en": "Weather" },
       "type": "number",
       "default": 0.7,
       "min": 0.3,
@@ -96,6 +200,86 @@
       "step": 0.1,
       "whenKey": "followTime",
       "whenValue": false
+    },
+    {
+      "key": "soundOn",
+      "label": { "zh-CN": "开启声音", "en": "Enable sound" },
+      "type": "bool",
+      "default": false,
+      "group": { "zh-CN": "声音", "en": "Sound" }
+    },
+    {
+      "key": "music",
+      "label": { "zh-CN": "禅意音乐", "en": "Music" },
+      "group": { "zh-CN": "声音", "en": "Sound" },
+      "type": "select",
+      "default": "guqin",
+      "whenKey": "soundOn",
+      "whenValue": true,
+      "options": [
+        { "value": "guqin", "label": { "zh-CN": "古琴", "en": "Guqin" } },
+        { "value": "bowl", "label": { "zh-CN": "颂钵", "en": "Singing bowl" } },
+        {
+          "value": "chimes",
+          "label": { "zh-CN": "风铃", "en": "Wind chimes" }
+        },
+        { "value": "off", "label": { "zh-CN": "关闭", "en": "Off" } }
+      ]
+    },
+    {
+      "key": "water",
+      "label": { "zh-CN": "水声", "en": "Water" },
+      "group": { "zh-CN": "声音", "en": "Sound" },
+      "type": "bool",
+      "default": true,
+      "whenKey": "soundOn",
+      "whenValue": true
+    },
+    {
+      "key": "waterType",
+      "label": { "zh-CN": "水声种类", "en": "Water sound" },
+      "group": { "zh-CN": "声音", "en": "Sound" },
+      "type": "select",
+      "default": "stream",
+      "whenKey": "soundOn",
+      "whenValue": true,
+      "options": [
+        { "value": "stream", "label": { "zh-CN": "溪流潺潺", "en": "Brook" } },
+        { "value": "spring", "label": { "zh-CN": "山泉叮咚", "en": "Spring" } },
+        {
+          "value": "cascade",
+          "label": { "zh-CN": "叠水瀑声", "en": "Cascade" }
+        },
+        {
+          "value": "lapping",
+          "label": { "zh-CN": "池水轻漾", "en": "Lapping" }
+        },
+        {
+          "value": "bamboo",
+          "label": { "zh-CN": "竹筒惊鹿", "en": "Bamboo spout" }
+        }
+      ]
+    },
+    {
+      "key": "weatherSound",
+      "label": { "zh-CN": "天气环境音", "en": "Weather ambience" },
+      "group": { "zh-CN": "声音", "en": "Sound" },
+      "type": "bool",
+      "default": true,
+      "whenKey": "soundOn",
+      "whenValue": true
+    },
+    {
+      "key": "volume",
+      "label": { "zh-CN": "总音量", "en": "Volume" },
+      "group": { "zh-CN": "声音", "en": "Sound" },
+      "type": "number",
+      "default": 0.7,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "whenKey": "soundOn",
+      "whenValue": true
     }
   ]
 }

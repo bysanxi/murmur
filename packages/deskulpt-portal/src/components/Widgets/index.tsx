@@ -22,6 +22,11 @@ const styles = {
   tabContent: css({ boxShadow: "inset 1px 0 0 0 var(--gray-a5)" }),
   settingsScroll: css({
     "[data-radix-scroll-area-viewport] > div": { width: "100%" },
+    // Table.Root 自带 ScrollArea。滑杆把表撑宽后，这条会和面板滚动条并排。
+    ".rt-TableRoot .rt-ScrollAreaScrollbar": { display: "none" },
+    ".rt-TableRoot [data-radix-scroll-area-viewport]": {
+      overflow: "hidden !important",
+    },
   }),
   splitter: css({
     flexShrink: 0,

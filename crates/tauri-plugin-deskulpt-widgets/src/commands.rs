@@ -22,6 +22,13 @@ pub async fn update_settings<R: Runtime>(
     Ok(())
 }
 
+/// Family names of the fonts installed on this computer.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_font_families<R: Runtime>(_app: AppHandle<R>) -> SerResult<Vec<String>> {
+    Ok(crate::fonts::font_families())
+}
+
 /// Refresh a specific widget by its ID.
 ///
 /// This command is a wrapper of [`crate::WidgetsManager::refresh`].

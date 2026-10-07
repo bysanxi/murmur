@@ -7,6 +7,7 @@
 mod catalog;
 mod commands;
 mod events;
+mod fonts;
 mod manager;
 pub mod persist;
 mod registry;

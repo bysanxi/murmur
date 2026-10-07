@@ -4,6 +4,7 @@ fn main() {
             "fetch_registry_index",
             "install",
             "preview",
+            "list_font_families",
             "refresh",
             "refresh_all",
             "reload_all",

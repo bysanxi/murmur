@@ -25,11 +25,13 @@
 | `vendor/styles.js`          | `window.PondStyles`。宿主按名字切换。                            |
 | `vendor/gl.js`              | WebGL2 渲染器，失败时退回 2D。挂到 `window.PondGL`。             |
 | `vendor/scene.js`           | 把生物、浮萍和天气摆到渲染器上。挂到 `window.PondScene`。        |
+| `vendor/audio.js`           | 合成的水声、天气环境音和乐器。挂到 `window.PondAudio`。          |
+| `sound.js`                  | 把本组件的声音设置交给这套合成，并在闪电之后播放雷声。           |
 | `vendor/pond-data.js`       | 写实池塘照片，JPEG data URL，放在 `window.POND_IMAGE_REAL`。     |
 | `vendor/pond-data-xieyi.js` | 写意池塘照片，放在 `window.POND_IMAGE_XIEYI`。                   |
 | `style-swap.js`             | 先解码新底图、画好贴图，再在一帧里提交切换。                     |
 
-引擎来自 fishwallpaper，只保留观赏。投喂、声音、手绘图案、城市天气和鱼的存档都没有接上。
+引擎来自 fishwallpaper，只保留观赏。投喂、手绘图案、城市天气和鱼的存档都没有接上。声音接上了：选项在本组件的设置里，由 `sound.js` 播放。
 
 ## 引擎素材
 
@@ -49,7 +51,7 @@ window.POND_IMAGE_REAL = "data:image/jpeg;base64,...";
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | 生物贴图 | Canvas 2D 逐像素或矢量绘制                                                                                                                                    | `vendor/art.js`                             |
 | 噪声纹理 | CPU 一次性生成两张 256²。一张是四通道可平铺 value noise，供云影、焦散扭曲、水珠和雪花取样；另一张是 26 个随机整数频率正弦叠加的坡度场，供微风波和太阳碎光取样 | `vendor/gl.js` 的 `noiseData` 和 `waveData` |
-| 声音     | 纯 Web Audio 合成，没有音频文件（上游才有，本组件未接）                                                                                                       | 上游 `audio.js`                             |
+| 声音     | 纯 Web Audio 合成，没有音频文件。水声、天气、古琴、颂钵、风铃。选项在本组件的设置里。                                                                         | `vendor/audio.js`                           |
 
 ## 贴图：生物是怎么画出来的
 
