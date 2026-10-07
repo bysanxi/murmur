@@ -41,8 +41,8 @@ deskulpt-plugin-fs  = { workspace = true }
 deskulpt-plugin-sys = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-webview2-com = "0.38"
-windows      = { version = "0.61", features = ["Win32_Foundation"] }
+webview2-com = "0.39"
+windows      = { version = "0.62", features = ["Win32_Foundation"] }
 
 [build-dependencies]
 tauri-deskulpt-build = { workspace = true }
