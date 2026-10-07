@@ -45,7 +45,7 @@ const App = () => {
   useInitialRefresh();
 
   return (
-    <RadixTheme appearance={theme} accentColor="indigo" grayColor="slate">
+    <RadixTheme appearance={theme} accentColor="amber" grayColor="slate">
       <Toaster
         position="bottom-center"
         theme={theme}

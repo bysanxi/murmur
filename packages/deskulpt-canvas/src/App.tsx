@@ -42,7 +42,7 @@ const App = () => {
   return (
     <RadixTheme
       appearance={theme}
-      accentColor="indigo"
+      accentColor="amber"
       grayColor="slate"
       hasBackground={false}
     >

@@ -51,6 +51,16 @@
       ]
     },
     {
+      "key": "speed",
+      "label": { "zh-CN": "游动速度", "en": "Swim speed" },
+      "type": "number",
+      "default": 1,
+      "min": 0.3,
+      "max": 2,
+      "step": 0.1,
+      "group": { "zh-CN": "画面", "en": "Scene" }
+    },
+    {
       "key": "style",
       "label": { "zh-CN": "画风", "en": "Style" },
       "type": "select",
@@ -203,18 +213,6 @@
       "type": "bool",
       "default": false,
       "group": { "zh-CN": "天气", "en": "Weather" },
-      "whenKey": "followTime",
-      "whenValue": false
-    },
-    {
-      "key": "speed",
-      "label": { "zh-CN": "游动速度", "en": "Swim speed" },
-      "group": { "zh-CN": "天气", "en": "Weather" },
-      "type": "number",
-      "default": 0.7,
-      "min": 0.3,
-      "max": 2,
-      "step": 0.1,
       "whenKey": "followTime",
       "whenValue": false
     },

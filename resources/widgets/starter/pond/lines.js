@@ -69,13 +69,13 @@ export function periodOf(date) {
 export function atmosphereOf(date) {
   const period = periodOf(date);
   const looks = {
-    morning: { weather: "sunny", night: false, speed: 0.55 },
-    lateMorning: { weather: "sunny", night: false, speed: 0.7 },
-    lunch: { weather: "sunny", night: false, speed: 0.42 },
-    afternoon: { weather: "cloudy", night: false, speed: 0.62 },
-    evening: { weather: "cloudy", night: false, speed: 0.5 },
-    lateNight: { weather: "cloudy", night: true, speed: 0.38 },
-    weekend: { weather: "sunny", night: false, speed: 0.4 },
+    morning: { weather: "sunny", night: false },
+    lateMorning: { weather: "sunny", night: false },
+    lunch: { weather: "sunny", night: false },
+    afternoon: { weather: "cloudy", night: false },
+    evening: { weather: "cloudy", night: false },
+    lateNight: { weather: "cloudy", night: true },
+    weekend: { weather: "sunny", night: false },
   };
   return looks[period];
 }

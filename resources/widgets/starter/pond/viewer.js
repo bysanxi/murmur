@@ -37,7 +37,7 @@ export function mountPond(host, config) {
 
   const settings = {
     weather: "sunny",
-    speed: 0.7,
+    speed: 1,
     turtles: true,
     crabs: true,
     silverCarp: true,
@@ -51,7 +51,7 @@ export function mountPond(host, config) {
     cityWeather: false,
     cityLive: null,
   };
-  const manual = { weather: "sunny", night: false, speed: 0.7 };
+  const manual = { weather: "sunny", night: false, speed: 1 };
   const pondSound = createPondSound(() => settings);
   const cityClient = createCityWeather({
     weatherFromCode: PondCore.weatherFromCode,
@@ -71,6 +71,8 @@ export function mountPond(host, config) {
   let width = Math.max(host.clientWidth, 1);
   let height = Math.max(host.clientHeight, 1);
   let shown = false;
+  let sized = "";
+  host.style.position = "relative";
   const simulation = new PondCore.PondSimulation(
     fish,
     width,
@@ -92,6 +94,20 @@ export function mountPond(host, config) {
   let time = 0;
   let stopped = false;
 
+  function coverView(canvas) {
+    if (!shown || !canvas?.width || !canvas?.height) return null;
+    const snap = document.createElement("canvas");
+    snap.width = canvas.width;
+    snap.height = canvas.height;
+    snap.style.cssText =
+      "position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;";
+    const ctx = snap.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(canvas, 0, 0);
+    host.append(snap);
+    return snap;
+  }
+
   function size() {
     width = Math.max(host.clientWidth, 1);
     height = Math.max(host.clientHeight, 1);
@@ -103,11 +119,19 @@ export function mountPond(host, config) {
     simulation.height = height;
     simulation.scale = clamp(Math.min(width, height) / 720, 0.66, 1.25);
     if (!renderer || !scene) return;
+    const key = `${width}x${height}@${dpr}@${settings.quality}`;
+    if (key === sized) return;
+    // Resizing the bitmap clears it. Keep the frame that is already on screen
+    // until the new one has been drawn.
+    const cover = coverView(view);
     renderer.resize(width, height, dpr, settings.quality);
     scene.layout(width, height);
-    if (!shown) return;
-    scene.draw(settings);
-    renderer.render(time, 0, scene.look);
+    sized = key;
+    if (shown) {
+      scene.draw(settings);
+      renderer.render(time, 0, scene.look);
+    }
+    cover?.remove();
   }
 
   function cacheFor(name) {
@@ -217,8 +241,13 @@ export function mountPond(host, config) {
     uploadSprites();
     renderer.render(0, 0.016, scene.look);
     shown = true;
+    const cover = parkedFrame?.parentNode === host ? parkedFrame : null;
+    if (view.parentNode !== host) {
+      if (cover) host.insertBefore(view, cover);
+      else host.append(view);
+    }
+    cover?.remove();
     parkedFrame = null;
-    host.replaceChildren(view);
   }
 
   function frame(now) {
@@ -254,9 +283,13 @@ export function mountPond(host, config) {
     return true;
   }
 
+  function applySpeed() {
+    settings.speed = pace(manual.speed);
+  }
+
   function applyManual() {
     settings.night = manual.night;
-    settings.speed = pace(manual.speed);
+    applySpeed();
     if (!applyCity()) settings.weather = manual.weather;
   }
 
@@ -283,8 +316,10 @@ export function mountPond(host, config) {
     if (["sunny", "cloudy", "rain", "snow"].includes(next.weather))
       manual.weather = next.weather;
     if (typeof next.night === "boolean") manual.night = next.night;
-    if (typeof next.speed === "number" && Number.isFinite(next.speed))
+    if (typeof next.speed === "number" && Number.isFinite(next.speed)) {
       manual.speed = clamp(next.speed, 0.3, 2);
+      applySpeed();
+    }
     if (typeof next.rainAmount === "number" && Number.isFinite(next.rainAmount))
       settings.rainAmount = clamp(next.rainAmount, 0, 1);
     if (typeof next.snowAmount === "number" && Number.isFinite(next.snowAmount))
@@ -311,7 +346,6 @@ export function mountPond(host, config) {
     setAtmosphere(next) {
       if (!settings.followTime) return;
       settings.night = next.night;
-      settings.speed = pace(next.speed);
       if (!applyCity()) settings.weather = next.weather;
       pondSound.noteScene();
     },

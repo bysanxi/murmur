@@ -76,7 +76,7 @@ function lineLook(config, visible) {
   };
 }
 
-export default function Pond({ config }) {
+function Pond({ config }) {
   const host = useRef(null);
   const pondRef = useRef(null);
   const configRef = useRef(config);
@@ -141,3 +141,15 @@ export default function Pond({ config }) {
     </div>
   );
 }
+
+// A second startup bundle would otherwise be a new component type, so React
+// unmounts the pond after it has painted and mounts a blank one. The clock
+// paints in that same turn, so only the pond shows a gap. Same source keeps
+// the instance that is already on screen.
+let pondComponent = Pond;
+if (window.__murmurPond?.toString() === Pond.toString()) {
+  pondComponent = window.__murmurPond;
+} else {
+  window.__murmurPond = Pond;
+}
+export default pondComponent;
