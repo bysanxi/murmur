@@ -200,6 +200,15 @@ pub struct WidgetSettingSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(type = WidgetConfigValue)]
     pub unless_value: Option<WidgetConfigValue>,
+    /// Another setting key that disables this one when it matches
+    /// [`Self::disable_value`]. The row stays visible.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = String)]
+    pub disable_key: Option<String>,
+    /// Value of [`Self::disable_key`] that disables this setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = WidgetConfigValue)]
+    pub disable_value: Option<WidgetConfigValue>,
     /// Choices for a select.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(type = Vec<WidgetSettingChoice>)]
@@ -629,6 +638,8 @@ mod tests {
             when_value: None,
             unless_key: None,
             unless_value: None,
+            disable_key: None,
+            disable_value: None,
             options: None,
             group: None,
         }

@@ -2,7 +2,7 @@
 
 [中文](./README.zh.md) | English
 
-Technical design of the `@murmur.pond` widget,「三息之间」. This directory is the widget source. Deskulpt bundles `index.jsx` and everything it imports into one ESM chunk. A file that nothing imports, including this README, stays out of that chunk.
+Technical design of the `@murmur.pond` widget,「半亩方塘」. This directory is the widget source. Deskulpt bundles `index.jsx` and everything it imports into one ESM chunk. A file that nothing imports, including this README, stays out of that chunk.
 
 The first launch copies this directory into the live widgets folder (`target/debug/widgets/@murmur.pond` in development, `Documents/Deskulpt/widgets/@murmur.pond` in a release build). That copy runs once. Later edits here are what you change; refresh the widget after the live copy has been updated.
 

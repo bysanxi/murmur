@@ -41,8 +41,8 @@ pub enum CanvasImode {
     Sink,
     /// Float mode.
     ///
-    /// The canvas is not click-through. Widgets are interactable. The desktop
-    /// is not interactable.
+    /// Widgets are interactable. Clicks that miss every widget pass through
+    /// to the desktop, the same way auto mode does.
     Float,
 }
 
@@ -56,6 +56,14 @@ pub enum ShortcutAction {
     ToggleCanvasImode,
     /// Open Deskulpt portal.
     OpenPortal,
+}
+
+const fn default_snap_threshold() -> u32 {
+    8
+}
+
+const fn default_show_guides() -> bool {
+    true
 }
 
 fn default_language() -> String {
@@ -78,6 +86,17 @@ pub struct Settings {
     /// This maps the actions to the shortcut strings that will trigger them.
     #[serde_as(deserialize_as = "MapSkipError<_, _>")]
     pub shortcuts: BTreeMap<ShortcutAction, String>,
+    /// Snap threshold in pixels when dragging or resizing widgets.
+    ///
+    /// Edges or centers within this distance of another widget snap into
+    /// alignment. `0` disables snapping.
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default = "default_snap_threshold")]
+    pub snap_threshold: u32,
+    /// Whether to show alignment guides while dragging or resizing widgets.
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default = "default_show_guides")]
+    pub show_guides: bool,
     /// Whether the starter widgets have been added.
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[specta(skip)]
@@ -94,6 +113,8 @@ impl Default for Settings {
             theme: Theme::default(),
             canvas_imode: CanvasImode::default(),
             shortcuts: BTreeMap::new(),
+            snap_threshold: default_snap_threshold(),
+            show_guides: default_show_guides(),
             starter_widgets_added: false,
             language: default_language(),
         }
@@ -117,6 +138,12 @@ pub struct SettingsPatch {
     /// or adding that shortcut.
     #[specta(optional, type = BTreeMap<ShortcutAction, Option<String>>)]
     pub shortcuts: Option<BTreeMap<ShortcutAction, Option<String>>>,
+    /// If not `None`, update [`Settings::snap_threshold`].
+    #[specta(optional, type = u32)]
+    pub snap_threshold: Option<u32>,
+    /// If not `None`, update [`Settings::show_guides`].
+    #[specta(optional, type = bool)]
+    pub show_guides: Option<bool>,
     /// If not `None`, update [`Settings::starter_widgets_added`].
     #[serde(skip)]
     pub starter_widgets_added: Option<bool>,

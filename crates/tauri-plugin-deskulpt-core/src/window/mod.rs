@@ -105,6 +105,9 @@ pub trait WindowExt<R: Runtime>: Manager<R> + SettingsExt<R> {
             if let Err(error) = desktop::apply(&canvas, true) {
                 tracing::error!("Failed to place canvas behind desktop icons: {error:#}");
             }
+        } else if settings.canvas_imode == CanvasImode::Float {
+            // Misses pass through until the pointer is over a widget.
+            canvas.set_ignore_cursor_events(true)?;
         }
 
         Ok(())

@@ -1,15 +1,10 @@
 import { useEffect } from "react";
-import { correctPageZoomOnce, listenMonitorScale } from "./monitorFrame";
+import GuidesOverlay from "./components/GuidesOverlay";
 import WidgetContainer from "./components/WidgetContainer";
 import { Toaster } from "sonner";
 import { Theme as RadixTheme } from "@radix-ui/themes";
 import { useShallow } from "zustand/shallow";
-import {
-  LANGUAGES,
-  type Language,
-  changeLanguage,
-  logger,
-} from "@deskulpt/utils";
+import { LANGUAGES, type Language, changeLanguage } from "@deskulpt/utils";
 import {
   useInitialRefresh,
   useRenderWidgetListener,
@@ -29,23 +24,6 @@ const App = () => {
     changeLanguage(language as Language);
   }, [language]);
 
-  useEffect(() => {
-    let unlisten = () => {};
-    let disposed = false;
-    void correctPageZoomOnce().catch(logger.error);
-    void listenMonitorScale(() => {
-      void correctPageZoomOnce().catch(logger.error);
-    })
-      .then((stop) => {
-        if (disposed) stop();
-        else unlisten = stop;
-      })
-      .catch(logger.error);
-    return () => {
-      disposed = true;
-      unlisten();
-    };
-  }, []);
   const ids = useWidgetsStore(
     useShallow((state) =>
       Object.entries(state)
@@ -80,6 +58,7 @@ const App = () => {
           },
         }}
       />
+      <GuidesOverlay />
       {ids.map((id) => (
         <WidgetContainer key={id} id={id} />
       ))}

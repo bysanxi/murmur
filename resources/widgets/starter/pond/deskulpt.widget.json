@@ -1,5 +1,5 @@
 {
-  "name": "三息之间",
+  "name": "半亩方塘",
   "version": "0.1.0",
   "authors": ["hiudong"],
   "license": "MIT",
@@ -62,11 +62,20 @@
       ]
     },
     {
+      "key": "lineOn",
+      "label": { "zh-CN": "显示寄语", "en": "Show the line" },
+      "type": "bool",
+      "default": true,
+      "group": { "zh-CN": "寄语", "en": "Line" }
+    },
+    {
       "key": "lineFont",
       "label": { "zh-CN": "字体", "en": "Font" },
       "type": "font",
       "default": "sans",
-      "group": { "zh-CN": "文字", "en": "Words" },
+      "group": { "zh-CN": "寄语", "en": "Line" },
+      "disableKey": "lineOn",
+      "disableValue": false,
       "options": [
         { "value": "sans", "label": { "zh-CN": "黑体", "en": "Sans" } },
         { "value": "kai", "label": { "zh-CN": "楷体", "en": "Kai" } },
@@ -76,7 +85,9 @@
     {
       "key": "lineSize",
       "label": { "zh-CN": "字号", "en": "Size" },
-      "group": { "zh-CN": "文字", "en": "Words" },
+      "group": { "zh-CN": "寄语", "en": "Line" },
+      "disableKey": "lineOn",
+      "disableValue": false,
       "type": "number",
       "default": 18,
       "min": 14,
@@ -88,7 +99,9 @@
       "label": { "zh-CN": "颜色", "en": "Color" },
       "type": "select",
       "default": "cream",
-      "group": { "zh-CN": "文字", "en": "Words" },
+      "group": { "zh-CN": "寄语", "en": "Line" },
+      "disableKey": "lineOn",
+      "disableValue": false,
       "options": [
         { "value": "cream", "label": { "zh-CN": "米白", "en": "Cream" } },
         { "value": "moon", "label": { "zh-CN": "月白", "en": "Moon" } },
@@ -101,7 +114,9 @@
       "label": { "zh-CN": "位置", "en": "Place" },
       "type": "select",
       "default": "low",
-      "group": { "zh-CN": "文字", "en": "Words" },
+      "group": { "zh-CN": "寄语", "en": "Line" },
+      "disableKey": "lineOn",
+      "disableValue": false,
       "options": [
         { "value": "low", "label": { "zh-CN": "近水", "en": "Low" } },
         { "value": "mid", "label": { "zh-CN": "居中", "en": "Center" } },
@@ -111,7 +126,9 @@
     {
       "key": "lineAlpha",
       "label": { "zh-CN": "浓淡", "en": "Strength" },
-      "group": { "zh-CN": "文字", "en": "Words" },
+      "group": { "zh-CN": "寄语", "en": "Line" },
+      "disableKey": "lineOn",
+      "disableValue": false,
       "type": "number",
       "default": 0.9,
       "min": 0.35,

@@ -66,6 +66,17 @@ canvasImode: CanvasImode;
  */
 shortcuts: Partial<{ [key in ShortcutAction]: string }>; 
 /**
+ * Snap threshold in pixels when dragging or resizing widgets.
+ * 
+ * Edges or centers within this distance of another widget snap into
+ * alignment. `0` disables snapping.
+ */
+snapThreshold: number; 
+/**
+ * Whether to show alignment guides while dragging or resizing widgets.
+ */
+showGuides: boolean; 
+/**
  * The application language.
  */
 language: string }
@@ -90,6 +101,14 @@ canvasImode?: CanvasImode;
  * or adding that shortcut.
  */
 shortcuts?: Partial<{ [key in ShortcutAction]: string | null }>; 
+/**
+ * If not `None`, update [`Settings::snap_threshold`].
+ */
+snapThreshold?: number; 
+/**
+ * If not `None`, update [`Settings::show_guides`].
+ */
+showGuides?: boolean; 
 /**
  * If not `None`, update [`Settings::language`].
  */

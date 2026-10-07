@@ -1,23 +1,37 @@
 //! Deskulpt widgets manager and its APIs.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
 use deskulpt_common::event::Event;
 use deskulpt_common::outcome::Outcome;
-use parking_lot::RwLock;
+use deskulpt_common::window::DeskulptWindow;
+use parking_lot::{Mutex, RwLock};
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_deskulpt_settings::SettingsExt;
 use tauri_plugin_deskulpt_settings::model::SettingsPatch;
 
 use crate::catalog::{WidgetCatalog, WidgetSettingsPatch};
 use crate::events::UpdateEvent;
-use crate::persist::{PersistWorkerHandle, PersistedWidgetCatalog, PersistedWidgetCatalogView};
+use crate::persist::{
+    CanvasSize, PersistWorkerHandle, PersistedSettings, PersistedWidgetCatalogView,
+};
 use crate::registry::{
     RegistryIndex, RegistryIndexFetcher, RegistryWidgetFetcher, RegistryWidgetPreview,
     RegistryWidgetReference,
 };
 use crate::render::{RenderWorkerHandle, RenderWorkerTask};
+
+/// Tracks when persisted widget geometry has been converted to canvas pixels.
+enum GeometryState {
+    /// Settings read from disk, not yet converted because the canvas size was
+    /// unknown while the catalog was loaded.
+    Pending(BTreeMap<String, PersistedSettings>),
+    /// Conversion has run. Records the canvas size it used so that writes
+    /// normalize against the same reference.
+    Ready(CanvasSize),
+}
 
 /// Manager for Deskulpt widgets.
 pub struct WidgetsManager<R: Runtime> {
@@ -29,6 +43,9 @@ pub struct WidgetsManager<R: Runtime> {
     catalog: RwLock<WidgetCatalog>,
     /// The path where widgets are persisted.
     persist_path: PathBuf,
+    /// The persisted geometry awaiting the canvas size, and the size it was
+    /// converted against.
+    geometry: Mutex<GeometryState>,
     /// The handle for the render worker.
     render_worker: RenderWorkerHandle,
     /// The handle for the persist worker.
@@ -38,9 +55,11 @@ pub struct WidgetsManager<R: Runtime> {
 impl<R: Runtime> WidgetsManager<R> {
     /// Initialize the [`WidgetsManager`].
     ///
-    /// The catalog will be populated with widgets in the widgets directory and
-    /// the persisted settings file. A render worker and a persist worker will
-    /// be started immediately.
+    /// The catalog will be populated with widgets in the widgets directory, and
+    /// the persisted settings file will be read. Since the canvas does not
+    /// exist yet while plugins are being set up, persisted geometry stays
+    /// unconverted until [`Self::ensure_geometry_ready`] runs. A render worker
+    /// and a persist worker will be started immediately.
     pub fn new(app_handle: AppHandle<R>) -> Result<Self> {
         let dir = if cfg!(debug_assertions) {
             app_handle.path().resource_dir()?
@@ -54,16 +73,9 @@ impl<R: Runtime> WidgetsManager<R> {
         catalog.reload_all(&dir)?;
 
         let persist_path = app_handle.path().app_local_data_dir()?.join("widgets.json");
-        let mut persisted_catalog =
-            PersistedWidgetCatalog::load(&persist_path).unwrap_or_else(|e| {
-                tracing::error!("Failed to load persisted widgets: {e:?}");
-                Default::default()
-            });
-        catalog.0.iter_mut().for_each(|(k, v)| {
-            if let Some(persisted) = persisted_catalog.0.remove(k) {
-                v.settings = persisted.settings;
-            }
-            v.fill_option_defaults();
+        let pending = PersistedSettings::load_all(&persist_path).unwrap_or_else(|e| {
+            tracing::error!("Failed to load persisted widgets: {e:?}");
+            BTreeMap::new()
         });
 
         let render_worker = RenderWorkerHandle::new(app_handle.clone());
@@ -74,9 +86,66 @@ impl<R: Runtime> WidgetsManager<R> {
             dir,
             catalog: RwLock::new(catalog),
             persist_path,
+            geometry: Mutex::new(GeometryState::Pending(pending)),
             render_worker,
             persist_worker,
         })
+    }
+
+    /// The logical size of the canvas window.
+    fn canvas_size(&self) -> Result<CanvasSize> {
+        let canvas = DeskulptWindow::Canvas.webview_window(&self.app_handle)?;
+        let physical = canvas.inner_size()?;
+        let scale = canvas.scale_factor()?;
+        let size = CanvasSize {
+            width: physical.width as f64 / scale,
+            height: physical.height as f64 / scale,
+        };
+        if !size.width.is_finite()
+            || !size.height.is_finite()
+            || size.width <= 0.0
+            || size.height <= 0.0
+        {
+            bail!(
+                "Canvas has no usable size yet: {}x{}",
+                size.width,
+                size.height
+            );
+        }
+        Ok(size)
+    }
+
+    /// Convert persisted widget geometry into canvas pixels.
+    ///
+    /// Widget geometry is stored normalized against the canvas, which is not
+    /// known while plugins are being set up, so the conversion is deferred
+    /// until the first API call that touches widget geometry. It runs at
+    /// most once; the canvas size it performed against is recorded and
+    /// reused when writing back to disk so that runtime pixels and
+    /// persisted fractions always agree.
+    ///
+    /// Returns the recorded canvas size.
+    fn ensure_geometry_ready(&self) -> Result<CanvasSize> {
+        let mut state = self.geometry.lock();
+
+        let pending = match &mut *state {
+            GeometryState::Ready(size) => return Ok(*size),
+            GeometryState::Pending(pending) => pending,
+        };
+
+        let size = self.canvas_size()?;
+
+        let mut catalog = self.catalog.write();
+        for (id, settings) in std::mem::take(pending) {
+            if let Some(widget) = catalog.0.get_mut(&id) {
+                widget.settings = settings.into_settings(size);
+                widget.fill_option_defaults();
+            }
+        }
+        drop(catalog);
+
+        *state = GeometryState::Ready(size);
+        Ok(size)
     }
 
     /// Get the widgets directory.
@@ -88,6 +157,7 @@ impl<R: Runtime> WidgetsManager<R> {
     ///
     /// An error is returned if the widget does not exist.
     pub fn update_settings(&self, id: &str, patch: WidgetSettingsPatch) -> Result<()> {
+        self.ensure_geometry_ready()?;
         let mut catalog = self.catalog.write();
         let widget = catalog
             .0
@@ -107,18 +177,38 @@ impl<R: Runtime> WidgetsManager<R> {
     /// This method is non-blocking and might return `None` if the widget
     /// catalog is currently locked for writing.
     pub fn try_covers_point(&self, x: f64, y: f64) -> Option<bool> {
+        // Hit-testing reads pixel geometry, so it needs the same conversion the
+        // read/write paths do; without it a still-pending catalog would be
+        // tested against unconverted defaults.
+        self.ensure_geometry_ready().ok()?;
         let catalog = self.catalog.try_read()?;
-        let covers = catalog
-            .0
-            .values()
-            .any(|widget| widget.settings.covers_point(x, y));
+        // Fullscreen widgets cannot be dragged, so they do not capture the
+        // pointer. Other widgets include a margin outside the box: the resize
+        // handles sit on that rim, and a tight test makes them click-through.
+        const RESIZE_MARGIN: f64 = 16.0;
+        let covers = catalog.0.values().any(|widget| {
+            let settings = &widget.settings;
+            if settings.fullscreen {
+                return false;
+            }
+            let left = settings.x as f64 - RESIZE_MARGIN;
+            let top = settings.y as f64 - RESIZE_MARGIN;
+            let right = settings.x as f64 + settings.width as f64 + RESIZE_MARGIN;
+            let bottom = settings.y as f64 + settings.height as f64 + RESIZE_MARGIN;
+            x >= left && x <= right && y >= top && y <= bottom
+        });
         Some(covers)
     }
 
     /// Persist the current widgets to disk.
     pub fn persist(&self) -> Result<()> {
+        let size = self.ensure_geometry_ready()?;
         let catalog = self.catalog.read();
-        PersistedWidgetCatalogView(&catalog).persist(&self.persist_path)?;
+        PersistedWidgetCatalogView {
+            catalog: &catalog,
+            size,
+        }
+        .persist(&self.persist_path)?;
         Ok(())
     }
 
@@ -129,6 +219,7 @@ impl<R: Runtime> WidgetsManager<R> {
     /// an addition, removal, or modification. It then syncs the settings with
     /// the updated catalog. If any step fails, an error is returned.
     pub fn reload(&self, id: &str) -> Result<()> {
+        self.ensure_geometry_ready()?;
         let widget_dir = self.dir.join(id);
 
         let mut catalog = self.catalog.write();
@@ -145,6 +236,7 @@ impl<R: Runtime> WidgetsManager<R> {
     /// replaces the existing catalog. It then syncs the settings with the
     /// updated catalog. If any step fails, an error is returned.
     pub fn reload_all(&self) -> Result<()> {
+        self.ensure_geometry_ready()?;
         let mut catalog = self.catalog.write();
         catalog.reload_all(&self.dir)?;
 

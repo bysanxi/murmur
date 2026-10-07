@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![doc(
-    html_logo_url = "https://github.com/deskulpt-apps/Deskulpt/raw/main/public/deskulpt.svg",
-    html_favicon_url = "https://github.com/deskulpt-apps/Deskulpt/raw/main/public/deskulpt.svg"
+    html_logo_url = "https://github.com/bysanxi/murmur/raw/main/public/murmur.png",
+    html_favicon_url = "https://github.com/bysanxi/murmur/raw/main/public/murmur.png"
 )]
 
 use tauri::{Builder, generate_context};
@@ -11,6 +11,9 @@ use tauri_plugin_deskulpt_core::tray::TrayExt;
 use tauri_plugin_deskulpt_core::window::WindowExt;
 use tauri_plugin_deskulpt_settings::SettingsExt;
 use tauri_plugin_deskulpt_widgets::WidgetsExt;
+
+/// Argument carried by a launch the OS starts at login.
+const LAUNCHED_AT_LOGIN_ARG: &str = "--launched-at-login";
 
 /// Entry point for the Deskulpt backend.
 pub fn run() {
@@ -40,6 +43,11 @@ pub fn run() {
         })
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // Tilde-pinned to 2.5.x: 2.6.0 requires tauri ^2.12 and would bump the framework.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![LAUNCHED_AT_LOGIN_ARG]),
+        ))
         // Prevent the opener plugin from registering handler for click event
         // so we can register our own that opens non-_blank anchors in new tab
         .plugin(

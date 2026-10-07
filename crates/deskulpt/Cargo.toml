@@ -11,6 +11,7 @@ version    = { workspace = true }
 
 [dependencies]
 tauri                          = { workspace = true, features = ["macos-private-api"] }
+tauri-plugin-autostart         = { workspace = true }
 tauri-plugin-clipboard-manager = { workspace = true }
 tauri-plugin-deskulpt-core     = { workspace = true }
 tauri-plugin-deskulpt-logs     = { workspace = true }

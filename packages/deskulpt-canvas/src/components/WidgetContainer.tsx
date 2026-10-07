@@ -1,19 +1,13 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
-import Draggable, { DraggableData, DraggableEvent } from "react-draggable";
-import {
-  NumberSize,
-  Resizable,
-  ResizeCallback,
-  ResizeDirection,
-  ResizeStartCallback,
-} from "re-resizable";
+import Draggable from "react-draggable";
+import { Resizable } from "re-resizable";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorDisplay from "./ErrorDisplay";
 import { logger, stringify, useTranslation } from "@deskulpt/utils";
 import { LuGripVertical } from "react-icons/lu";
 import { Box, Text } from "@radix-ui/themes";
 import { useWidgetsStore } from "../hooks";
+import { useWidgetSnap } from "../hooks/useWidgetSnap";
 import { css } from "@emotion/react";
 import { DeskulptWidgets } from "@deskulpt/bindings";
 import { currentMonitorFrame, listenMonitorScale } from "../monitorFrame";
@@ -38,52 +32,13 @@ const styles = {
   }),
 };
 
-interface WidgetGeometry {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 interface WidgetContainerProps {
   id: string;
-}
-
-function computeResizedGeometry(
-  geometry: WidgetGeometry,
-  direction: ResizeDirection,
-  delta: NumberSize,
-): WidgetGeometry {
-  const { x, y, width, height } = geometry;
-  let newX = x;
-  let newY = y;
-  const newWidth = width + delta.width;
-  const newHeight = height + delta.height;
-
-  // If resizing from top and/or left edges, we need to adjust position
-  // accordingly to make sure their opposite edges stay in place
-  switch (direction) {
-    case "top":
-    case "topRight":
-      newY = y - delta.height;
-      break;
-    case "left":
-    case "bottomLeft":
-      newX = x - delta.width;
-      break;
-    case "topLeft":
-      newX = x - delta.width;
-      newY = y - delta.height;
-      break;
-  }
-
-  return { x: newX, y: newY, width: newWidth, height: newHeight };
 }
 
 const WidgetContainer = ({ id }: WidgetContainerProps) => {
   const { t } = useTranslation();
   const draggableRef = useRef<HTMLDivElement>(null);
-  const resizeStartRef = useRef<WidgetGeometry>(null);
 
   // These non-null assertions are safe based on how App.tsx filters the IDs
   const Widget = useWidgetsStore((state) => state[id]!.component);
@@ -96,6 +51,14 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
     width: settings.width,
     height: settings.height,
   });
+  const {
+    dragOffset,
+    resizeSnap,
+    snapGap,
+    clearGuides,
+    dragHandlers,
+    resizeHandlers,
+  } = useWidgetSnap({ id, geometry, setGeometry });
   const [viewport, setViewport] = useState({
     width: settings.width,
     height: settings.height,
@@ -111,6 +74,8 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
       height: settings.height,
     });
   }, [settings]);
+
+  useEffect(() => () => clearGuides(), [clearGuides]);
 
   useEffect(() => {
     if (!settings.fullscreen) return;
@@ -163,49 +128,6 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
     ? { x: 0, y: 0, width: viewport.width, height: viewport.height }
     : geometry;
 
-  const onDragStop = (_: DraggableEvent, data: DraggableData) => {
-    setGeometry((prev) => prev && { ...prev, x: data.x, y: data.y });
-    DeskulptWidgets.Commands.updateSettings(id, { x: data.x, y: data.y });
-  };
-
-  const onResizeStart: ResizeStartCallback = () => {
-    resizeStartRef.current = { ...geometry };
-  };
-
-  const onResize: ResizeCallback = (_, direction, __, delta) => {
-    if (resizeStartRef.current === null) {
-      return;
-    }
-    const newGeometry = computeResizedGeometry(
-      resizeStartRef.current,
-      direction,
-      delta,
-    );
-
-    // Force position and size changes to land in the same frame to avoid
-    // visual glitches
-    flushSync(() => {
-      setGeometry(newGeometry);
-    });
-  };
-
-  const onResizeStop: ResizeCallback = (_, direction, __, delta) => {
-    if (resizeStartRef.current === null) {
-      return;
-    }
-
-    // We recompute with delta instead of using local state because at time
-    // this callback is triggered, we cannot guarantee that the local state
-    // updates has all been flushed due to react's asynchronous state updates;
-    // using delta also reduces the dependency array of this callback
-    const newGeometry = computeResizedGeometry(
-      resizeStartRef.current,
-      direction,
-      delta,
-    );
-    DeskulptWidgets.Commands.updateSettings(id, newGeometry);
-  };
-
   if (!settings.isLoaded) {
     return null;
   }
@@ -215,9 +137,10 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
       nodeRef={draggableRef}
       disabled={settings.fullscreen}
       position={{ x: frame.x, y: frame.y }}
-      onStop={onDragStop}
+      positionOffset={settings.fullscreen ? undefined : dragOffset}
       bounds="body"
       handle=".handle"
+      {...(settings.fullscreen ? {} : dragHandlers)}
     >
       <Box
         ref={draggableRef}
@@ -238,6 +161,8 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
         </Box>
         <Resizable
           size={{ width: frame.width, height: frame.height }}
+          snap={settings.fullscreen ? undefined : resizeSnap}
+          snapGap={settings.fullscreen ? undefined : snapGap}
           enable={
             settings.fullscreen
               ? {
@@ -252,9 +177,7 @@ const WidgetContainer = ({ id }: WidgetContainerProps) => {
                 }
               : undefined
           }
-          onResizeStart={onResizeStart}
-          onResize={onResize}
-          onResizeStop={onResizeStop}
+          {...(settings.fullscreen ? {} : resizeHandlers)}
           css={styles.container}
           style={
             {

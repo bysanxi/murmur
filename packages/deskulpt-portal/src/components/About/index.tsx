@@ -5,12 +5,6 @@ import { css } from "@emotion/react";
 import { useTranslation } from "@deskulpt/utils";
 
 const styles = {
-  logo: css({
-    ".dark &": {
-      filter: "invert(90%) hue-rotate(170deg)",
-      opacity: 0.9,
-    },
-  }),
   table: css({
     "--table-cell-padding": "var(--space-1) 0",
     "--table-cell-min-height": 0,
@@ -24,7 +18,7 @@ const AboutTab = () => {
   return (
     <Flex height="100%" pb="8" justify="center" align="center">
       <Flex align="center" justify="center" flexGrow="1">
-        <Avatar src="/deskulpt.svg" fallback="D" size="8" css={styles.logo} />
+        <Avatar src="/murmur.png" fallback="三" size="8" />
       </Flex>
       <Box flexGrow="1">
         <Heading size="6" mb="1">

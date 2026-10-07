@@ -4,6 +4,7 @@
   "description": "Capabilities of Deskulpt portal.",
   "windows": ["portal"],
   "permissions": [
+    "deskulpt-core:allow-call-plugin",
     "deskulpt-core:allow-open",
     "deskulpt-logs:allow-clear",
     "deskulpt-logs:allow-read",

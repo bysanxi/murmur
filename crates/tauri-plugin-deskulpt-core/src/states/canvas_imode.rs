@@ -42,6 +42,8 @@ struct CanvasImodeState {
 
 /// Whether the global mousemove listener is enabled.
 static LISTENING_MOUSEMOVE: AtomicBool = AtomicBool::new(false);
+/// Last click-through state applied by the listener.
+static CURSOR_IGNORED: AtomicBool = AtomicBool::new(true);
 
 /// Extension trait for operations on canvas interaction mode.
 pub trait CanvasImodeStateExt<R: Runtime>: Manager<R> + SettingsExt<R> {
@@ -76,7 +78,8 @@ pub trait CanvasImodeStateExt<R: Runtime>: Manager<R> + SettingsExt<R> {
             }
         });
 
-        if self.settings().read().canvas_imode == CanvasImode::Auto {
+        let imode = self.settings().read().canvas_imode.clone();
+        if imode == CanvasImode::Auto || imode == CanvasImode::Float {
             LISTENING_MOUSEMOVE.store(true, Ordering::Release);
         }
 
@@ -168,17 +171,20 @@ fn on_new_canvas_imode<R: Runtime>(canvas: &WebviewWindow<R>, mode: &CanvasImode
         CanvasImode::Auto => {
             LISTENING_MOUSEMOVE.store(true, Ordering::Release);
             #[cfg(windows)]
-            crate::window::desktop::apply(canvas, false)?;
+            {
+                crate::window::desktop::apply(canvas, false)?;
+                restore_surface(canvas)?;
+            }
         },
         CanvasImode::Sink | CanvasImode::Float => {
             // Set the flag with write lock acquired to avoid racing with the
             // mousemove hook on setting `ignore_cursor_events`
             let state = canvas.state::<CanvasImodeState>();
             let _guard = state.lock.write();
-            LISTENING_MOUSEMOVE.store(false, Ordering::Release);
-            // Entering sink: let Tauri update its style, then parent behind the
-            // icons. Leaving sink: unparent first, then let Tauri
-            // restore a top-level style.
+            // Float keeps the listener so a miss falls through to the desktop.
+            // Sink captures nothing.
+            LISTENING_MOUSEMOVE.store(!embed, Ordering::Release);
+            CURSOR_IGNORED.store(true, Ordering::Release);
             if embed {
                 canvas.set_ignore_cursor_events(true)?;
                 #[cfg(windows)]
@@ -186,7 +192,11 @@ fn on_new_canvas_imode<R: Runtime>(canvas: &WebviewWindow<R>, mode: &CanvasImode
             } else {
                 #[cfg(windows)]
                 crate::window::desktop::apply(canvas, false)?;
-                canvas.set_ignore_cursor_events(false)?;
+                canvas.set_ignore_cursor_events(true)?;
+                // Tauri rewrites the window style on the UI thread after this
+                // returns. Restore the maximized window after that rewrite.
+                #[cfg(windows)]
+                restore_surface(canvas)?;
             }
         },
     }
@@ -200,6 +210,20 @@ fn on_new_canvas_imode<R: Runtime>(canvas: &WebviewWindow<R>, mode: &CanvasImode
     Ok(())
 }
 
+/// Put the canvas back into the maximized top-level window after a detach.
+///
+/// Queued on the UI thread so it runs after Tauri's own style update.
+#[cfg(windows)]
+fn restore_surface<R: Runtime>(canvas: &WebviewWindow<R>) -> Result<()> {
+    let canvas = canvas.clone();
+    canvas.clone().run_on_main_thread(move || {
+        if let Err(error) = crate::window::desktop::release_surface(&canvas) {
+            tracing::error!("Failed to restore the canvas window: {error:#}");
+        }
+    })?;
+    Ok(())
+}
+
 /// Global mousemove event listener.
 ///
 /// If the cheap check on [`LISTENING_MOUSEMOVE`] gives false, the hook will
@@ -207,8 +231,6 @@ fn on_new_canvas_imode<R: Runtime>(canvas: &WebviewWindow<R>, mode: &CanvasImode
 /// it will check whether the mouse is over any widget in the canvas. If so, the
 /// canvas will accept cursor events; otherwise, it will ignore them.
 fn listen_to_mousemove<R: Runtime>(canvas: WebviewWindow<R>) -> Result<()> {
-    let mut is_cursor_ignored = true;
-
     global_mousemove::listen(move |event| {
         if !LISTENING_MOUSEMOVE.load(Ordering::Acquire) {
             return;
@@ -239,7 +261,7 @@ fn listen_to_mousemove<R: Runtime>(canvas: WebviewWindow<R>) -> Result<()> {
 
         // Avoid redundant calls by checking if the state has really changed
         let should_ignore_cursor = !mouse_over_widget;
-        if should_ignore_cursor != is_cursor_ignored {
+        if should_ignore_cursor != CURSOR_IGNORED.load(Ordering::Acquire) {
             // Check the flag with read lock acquired to avoid racing with the
             // writers on setting `ignore_cursor_events`
             let state = canvas.state::<CanvasImodeState>();
@@ -251,7 +273,7 @@ fn listen_to_mousemove<R: Runtime>(canvas: WebviewWindow<R>) -> Result<()> {
             if !LISTENING_MOUSEMOVE.load(Ordering::Acquire) {
                 return;
             }
-            is_cursor_ignored = should_ignore_cursor;
+            CURSOR_IGNORED.store(should_ignore_cursor, Ordering::Release);
             if let Err(e) = canvas.set_ignore_cursor_events(should_ignore_cursor) {
                 eprintln!("Failed to set cursor events state: {e}");
             }

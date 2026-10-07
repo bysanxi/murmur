@@ -70,6 +70,7 @@ export function mountPond(host, config) {
 
   let width = Math.max(host.clientWidth, 1);
   let height = Math.max(host.clientHeight, 1);
+  let shown = false;
   const simulation = new PondCore.PondSimulation(
     fish,
     width,
@@ -101,10 +102,12 @@ export function mountPond(host, config) {
     simulation.width = width;
     simulation.height = height;
     simulation.scale = clamp(Math.min(width, height) / 720, 0.66, 1.25);
-    if (renderer && scene) {
-      renderer.resize(width, height, dpr, settings.quality);
-      scene.layout(width, height);
-    }
+    if (!renderer || !scene) return;
+    renderer.resize(width, height, dpr, settings.quality);
+    scene.layout(width, height);
+    if (!shown) return;
+    scene.draw(settings);
+    renderer.render(time, 0, scene.look);
   }
 
   function cacheFor(name) {
@@ -213,6 +216,7 @@ export function mountPond(host, config) {
     });
     uploadSprites();
     renderer.render(0, 0.016, scene.look);
+    shown = true;
     parkedFrame = null;
     host.replaceChildren(view);
   }

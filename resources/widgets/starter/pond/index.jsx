@@ -83,17 +83,6 @@ export default function Pond({ config }) {
   configRef.current = config;
   const [line, setLine] = useState(() => lineOf(new Date()));
   const [shown, setShown] = useState(line);
-  const [viewport, setViewport] = useState(() => ({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  }));
-
-  useEffect(() => {
-    const fit = () =>
-      setViewport({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, []);
 
   useLayoutEffect(() => {
     const pond = mountPond(host.current, configRef.current);
@@ -131,8 +120,8 @@ export default function Pond({ config }) {
   return (
     <div
       style={{
-        width: viewport.width,
-        height: viewport.height,
+        width: "100%",
+        height: "100%",
         position: "relative",
         overflow: "hidden",
         background: "transparent",
@@ -146,7 +135,9 @@ export default function Pond({ config }) {
           opacity: "var(--nfr-widget-bg-alpha, 1)",
         }}
       />
-      <p style={lineLook(config, line === shown)}>{shown}</p>
+      {config?.lineOn !== false && (
+        <p style={lineLook(config, line === shown)}>{shown}</p>
+      )}
     </div>
   );
 }

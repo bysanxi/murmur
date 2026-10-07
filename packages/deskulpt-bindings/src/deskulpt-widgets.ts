@@ -334,6 +334,15 @@ unlessKey?: string;
  */
 unlessValue?: WidgetConfigValue; 
 /**
+ * Another setting key that disables this one when it matches disableValue.
+ * The row stays visible.
+ */
+disableKey?: string; 
+/**
+ * Value of disableKey that disables this setting.
+ */
+disableValue?: WidgetConfigValue; 
+/**
  * Choices for a select.
  */
 options?: WidgetSettingChoice[]; 

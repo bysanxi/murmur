@@ -205,9 +205,14 @@ const SettingRow = ({
 }) => {
   const { t } = useTranslation();
   const fallback = spec.default;
+  const disabled =
+    spec.disableKey !== undefined &&
+    config?.[spec.disableKey] === spec.disableValue;
   return (
     <Table.Row align="center">
-      <Table.RowHeaderCell>
+      <Table.RowHeaderCell
+        style={{ color: disabled ? "var(--gray-9)" : undefined }}
+      >
         {widgetText(spec.label, language)}
       </Table.RowHeaderCell>
       <Table.Cell>
@@ -217,7 +222,7 @@ const SettingRow = ({
               id={id}
               spec={spec}
               value={config?.[spec.key]}
-              disabled={false}
+              disabled={disabled}
               language={language}
             />
           </Flex>
@@ -226,7 +231,7 @@ const SettingRow = ({
               size="1"
               variant="ghost"
               color="gray"
-              disabled={sameValue(config?.[spec.key], fallback)}
+              disabled={disabled || sameValue(config?.[spec.key], fallback)}
               title={t("widgets.reset")}
               style={{ flexShrink: 0 }}
               onClick={() => writeConfig(id, spec.key, fallback)}

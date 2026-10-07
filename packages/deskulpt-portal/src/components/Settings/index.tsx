@@ -1,6 +1,9 @@
 import { Box, Button, Flex, ScrollArea, Table } from "@radix-ui/themes";
 import { LuSquarePen } from "react-icons/lu";
+import AutoStart from "./AutoStart";
 import CanvasImode from "./CanvasImode";
+import ShowGuides from "./ShowGuides";
+import SnapThreshold from "./SnapThreshold";
 import Shortcut from "./Shortcut";
 import SectionTable from "./SectionTable";
 import { DeskulptCore } from "@deskulpt/bindings";
@@ -20,6 +23,30 @@ const Settings = () => {
                 </Table.RowHeaderCell>
                 <Table.Cell justify="end">
                   <CanvasImode />
+                </Table.Cell>
+              </Table.Row>
+              <Table.Row align="center">
+                <Table.RowHeaderCell>
+                  {t("settings.snapThreshold")}
+                </Table.RowHeaderCell>
+                <Table.Cell justify="end">
+                  <SnapThreshold />
+                </Table.Cell>
+              </Table.Row>
+              <Table.Row align="center">
+                <Table.RowHeaderCell>
+                  {t("settings.showGuides")}
+                </Table.RowHeaderCell>
+                <Table.Cell justify="end">
+                  <ShowGuides />
+                </Table.Cell>
+              </Table.Row>
+              <Table.Row align="center">
+                <Table.RowHeaderCell>
+                  {t("settings.launchAtLogin")}
+                </Table.RowHeaderCell>
+                <Table.Cell justify="end">
+                  <AutoStart />
                 </Table.Cell>
               </Table.Row>
             </SectionTable>

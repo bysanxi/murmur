@@ -53,6 +53,9 @@ export default {
   settings: {
     basics: "基础",
     canvasImode: "画布交互模式",
+    snapThreshold: "吸附阈值 (px)",
+    showGuides: "显示对齐参考线",
+    launchAtLogin: "开机启动",
     shortcuts: "键盘快捷键",
     toggleCanvasImode: "切换画布交互模式",
     openManager: "打开管理器",

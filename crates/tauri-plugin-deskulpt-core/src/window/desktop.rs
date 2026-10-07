@@ -17,6 +17,7 @@ const GWL_EXSTYLE: i32 = -20;
 const WS_POPUP: u32 = 0x8000_0000;
 const WS_CHILD: u32 = 0x4000_0000;
 const WS_VISIBLE: u32 = 0x1000_0000;
+const WS_MAXIMIZE: u32 = 0x0100_0000;
 const WS_EX_LAYERED: u32 = 0x0008_0000;
 const WS_EX_TOOLWINDOW: u32 = 0x0000_0080;
 const WS_EX_NOACTIVATE: u32 = 0x0800_0000;
@@ -92,7 +93,16 @@ pub fn apply<R: Runtime>(window: &WebviewWindow<R>, embed: bool) -> Result<()> {
     let hwnd = window.hwnd()?.0 as isize;
     if embed {
         let _ = window.unmaximize();
-        embed_hwnd(hwnd)
+        embed_hwnd(hwnd)?;
+        // The desktop parent does not deliver DPI changes. Pin the WebView to
+        // the monitor scale here instead of zooming the page.
+        let window = window.clone();
+        window.clone().run_on_main_thread(move || {
+            if let Err(error) = sync_webview(&window, false) {
+                tracing::error!("Failed to sync the embedded canvas surface: {error:#}");
+            }
+        })?;
+        Ok(())
     } else if unsafe { GetParent(hwnd) } != 0 {
         detach_hwnd(hwnd)?;
         window.set_always_on_bottom(true)?;
@@ -109,6 +119,7 @@ pub fn maintain<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
         if unsafe { GetParent(hwnd) } != 0 {
             detach_hwnd(hwnd)?;
             window.set_always_on_bottom(true)?;
+            release_surface(window)?;
         }
         return Ok(());
     }
@@ -118,7 +129,7 @@ pub fn maintain<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
     let host_alive = host != 0 && unsafe { IsWindow(host) } != 0;
     if !host_alive || parent != host {
         let _ = window.unmaximize();
-        return embed_hwnd(hwnd);
+        return embed_hwnd(hwnd).and_then(|()| sync_webview(window, false));
     }
 
     let monitor = monitor_rect(hwnd).context("canvas monitor is unavailable")?;
@@ -131,6 +142,7 @@ pub fn maintain<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
         })
     {
         place(hwnd, host)?;
+        sync_webview(window, false)?;
     }
     Ok(())
 }
@@ -176,7 +188,7 @@ fn detach_hwnd(hwnd: isize) -> Result<()> {
     unsafe {
         SetParent(hwnd, 0);
         let mut style = get_long(hwnd, GWL_STYLE);
-        style &= !WS_CHILD;
+        style &= !(WS_CHILD | WS_MAXIMIZE);
         style |= WS_POPUP | WS_VISIBLE;
         set_long(hwnd, GWL_STYLE, style);
         if EXSTYLE_SAVED.load(Ordering::Acquire) {
@@ -188,22 +200,6 @@ fn detach_hwnd(hwnd: isize) -> Result<()> {
         }
         set_blur_behind(hwnd, true);
     }
-
-    let monitor = monitor_rect(hwnd).context("canvas monitor is unavailable")?;
-    let width = monitor.right - monitor.left;
-    let height = monitor.bottom - monitor.top;
-    unsafe {
-        SetWindowPos(
-            hwnd,
-            1, // HWND_BOTTOM
-            monitor.left,
-            monitor.top,
-            width,
-            height,
-            SWP_NOACTIVATE | SWP_SHOWWINDOW,
-        );
-    }
-    remember_placement(monitor);
     Ok(())
 }
 
@@ -262,6 +258,99 @@ fn set_blur_behind(hwnd: isize, enabled: bool) {
             };
             DwmEnableBlurBehindWindow(hwnd, &blur);
         }
+    }
+}
+
+/// Restore a top-level canvas to the maximized window Deskulpt uses.
+///
+/// Leaving the desktop parent must not assign a monitor rectangle. That
+/// covers the taskbar, and the WebView menu is then positioned in the wrong
+/// place. Zoom goes back to 1 and scale detection follows the window again.
+pub fn release_surface<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
+    window.maximize()?;
+    let hwnd = window.hwnd()?.0 as isize;
+    let mut client = Rect {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+    };
+    unsafe {
+        GetClientRect(hwnd, &mut client);
+    }
+    let bounds = windows::Win32::Foundation::RECT {
+        left: 0,
+        top: 0,
+        right: client.right - client.left,
+        bottom: client.bottom - client.top,
+    };
+    window.with_webview(move |webview| unsafe {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller3;
+        use windows::core::Interface;
+
+        let controller = webview.controller();
+        let _ = controller.SetBounds(bounds);
+        let _ = controller.SetZoomFactor(1.0);
+        let _ = controller.NotifyParentWindowPositionChanged();
+        if let Ok(controller3) = controller.cast::<ICoreWebView2Controller3>() {
+            let _ = controller3.SetShouldDetectMonitorScaleChanges(true);
+        }
+    })?;
+    Ok(())
+}
+
+/// Size the WebView to the window.
+///
+/// A desktop child does not receive monitor DPI changes, so its scale is
+/// pinned to the monitor. A top-level window uses its own DPI, which is also
+/// what its context menu is positioned in. Page zoom stays at 1.
+fn sync_webview<R: Runtime>(window: &WebviewWindow<R>, detect_monitor_scale: bool) -> Result<()> {
+    let hwnd = window.hwnd()?.0 as isize;
+    let mut client = Rect {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+    };
+    unsafe {
+        GetClientRect(hwnd, &mut client);
+    }
+    let scale = monitor_scale(hwnd);
+    let bounds = windows::Win32::Foundation::RECT {
+        left: 0,
+        top: 0,
+        right: client.right - client.left,
+        bottom: client.bottom - client.top,
+    };
+
+    window.with_webview(move |webview| unsafe {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller3;
+        use windows::core::Interface;
+
+        let controller = webview.controller();
+        let _ = controller.SetBounds(bounds);
+        let _ = controller.SetZoomFactor(1.0);
+        let _ = controller.NotifyParentWindowPositionChanged();
+        if let Ok(controller3) = controller.cast::<ICoreWebView2Controller3>() {
+            let _ = controller3.SetShouldDetectMonitorScaleChanges(detect_monitor_scale);
+            let _ = controller3.SetRasterizationScale(scale);
+        }
+    })?;
+    Ok(())
+}
+
+fn monitor_scale(hwnd: isize) -> f64 {
+    unsafe {
+        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if monitor != 0 {
+            let mut x = 0u32;
+            let mut y = 0u32;
+            if GetDpiForMonitor(monitor, 0, &mut x, &mut y) == 0 && x > 0 {
+                return x as f64 / 96.0;
+            }
+        }
+        let dpi = GetDpiForWindow(hwnd);
+        if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 }
     }
 }
 
@@ -393,6 +482,8 @@ unsafe extern "system" {
         h: i32,
         flags: u32,
     ) -> i32;
+    fn GetClientRect(hwnd: isize, rect: *mut Rect) -> i32;
+    fn GetDpiForWindow(hwnd: isize) -> u32;
     fn MapWindowPoints(from: isize, to: isize, rect: *mut Rect, points: u32) -> i32;
     fn SetLayeredWindowAttributes(hwnd: isize, key: u32, alpha: u8, flags: u32) -> i32;
     fn MonitorFromWindow(hwnd: isize, flags: u32) -> isize;
@@ -411,6 +502,11 @@ unsafe extern "system" {
 #[link(name = "dwmapi")]
 unsafe extern "system" {
     fn DwmEnableBlurBehindWindow(hwnd: isize, blur: *const BlurBehind) -> i32;
+}
+
+#[link(name = "shcore")]
+unsafe extern "system" {
+    fn GetDpiForMonitor(monitor: isize, dpi_type: u32, dpi_x: *mut u32, dpi_y: *mut u32) -> i32;
 }
 
 #[link(name = "gdi32")]

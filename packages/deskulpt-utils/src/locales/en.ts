@@ -53,6 +53,9 @@ export default {
   settings: {
     basics: "Basics",
     canvasImode: "Canvas interaction mode",
+    snapThreshold: "Snap threshold (px)",
+    showGuides: "Show alignment guides",
+    launchAtLogin: "Launch at login",
     shortcuts: "Keyboard Shortcuts",
     toggleCanvasImode: "Toggle canvas interaction mode",
     openManager: "Open manager",

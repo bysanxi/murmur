@@ -2,7 +2,7 @@
 
 中文 | [English](./README.md)
 
-`@murmur.pond`（三息之间）的技术实现。这个目录是组件源码。Deskulpt 从 `index.jsx` 出发，把入口和它引用到的文件打成一个 ESM 包。没有任何文件引用的内容不会进包，包括本说明。
+`@murmur.pond`（半亩方塘）的技术实现。这个目录是组件源码。Deskulpt 从 `index.jsx` 出发，把入口和它引用到的文件打成一个 ESM 包。没有任何文件引用的内容不会进包，包括本说明。
 
 应用第一次启动时，会把这个目录复制到正在使用的组件目录：开发时是 `target/debug/widgets/@murmur.pond`，发布时是 `Documents/Deskulpt/widgets/@murmur.pond`。复制只发生一次。之后改的是这里的源码；运行副本更新之后，再刷新组件才会用上新代码。
 

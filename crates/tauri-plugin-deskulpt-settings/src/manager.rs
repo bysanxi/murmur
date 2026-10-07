@@ -281,6 +281,20 @@ impl<R: Runtime> SettingsManager<R> {
             }
         }
 
+        if let Some(snap_threshold) = patch.snap_threshold
+            && settings.snap_threshold != snap_threshold
+        {
+            settings.snap_threshold = snap_threshold;
+            should_emit = true;
+        }
+
+        if let Some(show_guides) = patch.show_guides
+            && settings.show_guides != show_guides
+        {
+            settings.show_guides = show_guides;
+            should_emit = true;
+        }
+
         if let Some(starter_widgets_added) = patch.starter_widgets_added
             && settings.starter_widgets_added != starter_widgets_added
         {
