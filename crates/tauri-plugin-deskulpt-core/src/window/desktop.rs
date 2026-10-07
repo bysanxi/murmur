@@ -339,7 +339,7 @@ fn sync_webview<R: Runtime>(window: &WebviewWindow<R>, detect_monitor_scale: boo
     Ok(())
 }
 
-fn monitor_scale(hwnd: isize) -> f64 {
+pub(crate) fn monitor_scale(hwnd: isize) -> f64 {
     unsafe {
         let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if monitor != 0 {

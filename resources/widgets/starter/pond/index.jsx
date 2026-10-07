@@ -144,12 +144,14 @@ function Pond({ config }) {
 
 // A second startup bundle would otherwise be a new component type, so React
 // unmounts the pond after it has painted and mounts a blank one. The clock
-// paints in that same turn, so only the pond shows a gap. Same source keeps
-// the instance that is already on screen.
+// paints in that same turn, so only the pond shows a gap. The same sources
+// keep the instance already on screen; a change to the pond code does not.
+const pondSource = `${Pond}\0${mountPond}\0${atmosphereOf}`;
+const previousPond = window.__murmurPond;
 let pondComponent = Pond;
-if (window.__murmurPond?.toString() === Pond.toString()) {
-  pondComponent = window.__murmurPond;
+if (previousPond?.source === pondSource && previousPond.component) {
+  pondComponent = previousPond.component;
 } else {
-  window.__murmurPond = Pond;
+  window.__murmurPond = { source: pondSource, component: Pond };
 }
 export default pondComponent;

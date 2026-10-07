@@ -41,7 +41,7 @@ export function createPondSound(getScene) {
       weatherSound: heard.weatherSound,
       music: heard.music,
       volume: heard.volume,
-      sfx: false,
+      sfx: true,
       weather: scene.weather,
       night: scene.night,
       rainAmount: scene.rainAmount,
@@ -70,6 +70,12 @@ export function createPondSound(getScene) {
     thunder(event) {
       if (event?.type === "thunder")
         audio.thunderAfter(event.delay, event.strength);
+    },
+    plop() {
+      audio.plop();
+    },
+    tap() {
+      audio.tap();
     },
     stop() {
       document.removeEventListener("visibilitychange", onVisibility);

@@ -72,6 +72,18 @@
       ]
     },
     {
+      "key": "touch",
+      "label": { "zh-CN": "互动", "en": "Touch" },
+      "type": "select",
+      "default": "off",
+      "group": { "zh-CN": "画面", "en": "Scene" },
+      "options": [
+        { "value": "off", "label": { "zh-CN": "关闭", "en": "Off" } },
+        { "value": "feed", "label": { "zh-CN": "投喂", "en": "Feed" } },
+        { "value": "watch", "label": { "zh-CN": "观鱼", "en": "Watch" } }
+      ]
+    },
+    {
       "key": "lineOn",
       "label": { "zh-CN": "显示寄语", "en": "Show the line" },
       "type": "bool",

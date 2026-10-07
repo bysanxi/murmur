@@ -22,6 +22,8 @@ tauri-plugin-opener            = { workspace = true }
 tracing                        = { workspace = true }
 
 [build-dependencies]
+ico         = { workspace = true }
+image       = { workspace = true }
 tauri-build = { workspace = true, features = ["codegen"] }
 
 [package.metadata.docs.rs]

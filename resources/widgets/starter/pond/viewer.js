@@ -52,6 +52,7 @@ export function mountPond(host, config) {
     cityLive: null,
   };
   const manual = { weather: "sunny", night: false, speed: 1 };
+  let touch = "off";
   const pondSound = createPondSound(() => settings);
   const cityClient = createCityWeather({
     weatherFromCode: PondCore.weatherFromCode,
@@ -271,6 +272,47 @@ export function mountPond(host, config) {
   const observer = new ResizeObserver(() => size());
   observer.observe(host);
 
+  let lastTap = 0;
+  function touchAt(x, y) {
+    if (!scene || touch === "off") return;
+    const now = performance.now();
+    if (now - lastTap < 40) return;
+    lastTap = now;
+    scene.startle(x, y);
+    if (touch === "watch") {
+      scene.drop(x, y, 9 * scene.scale, 0.9);
+      simulation.scare(x, y, 170 * scene.scale);
+      pondSound.tap();
+      return;
+    }
+    scene.drop(x, y, 7 * scene.scale, 0.5);
+    const before = simulation.food.length;
+    if (!simulation.feed(x, y)) return;
+    for (const pellet of simulation.food.slice(before)) {
+      scene.drop(pellet.x, pellet.y, 3 * scene.scale, 0.22);
+    }
+    pondSound.plop();
+  }
+
+  function tapFrom(clientX, clientY) {
+    if (touch === "off") return;
+    const rect = host.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    touchAt(
+      ((clientX - rect.left) / rect.width) * width,
+      ((clientY - rect.top) / rect.height) * height,
+    );
+  }
+  function onPointerDown(event) {
+    if (event.button !== 0) return;
+    tapFrom(event.clientX, event.clientY);
+  }
+  function onWallpaperTap(x, y) {
+    tapFrom(x, y);
+  }
+  host.addEventListener("pointerdown", onPointerDown);
+  window.__murmurPondTap = onWallpaperTap;
+
   const pace = (speed) =>
     settings.quality === "eco" ? Math.min(speed, 0.45) : speed;
 
@@ -320,6 +362,14 @@ export function mountPond(host, config) {
       manual.speed = clamp(next.speed, 0.3, 2);
       applySpeed();
     }
+    if (
+      next.touch === "feed" ||
+      next.touch === "watch" ||
+      next.touch === "off"
+    ) {
+      touch = next.touch;
+      host.style.cursor = touch === "off" ? "" : "pointer";
+    }
     if (typeof next.rainAmount === "number" && Number.isFinite(next.rainAmount))
       settings.rainAmount = clamp(next.rainAmount, 0, 1);
     if (typeof next.snowAmount === "number" && Number.isFinite(next.snowAmount))
@@ -353,6 +403,9 @@ export function mountPond(host, config) {
       stopped = true;
       cancelAnimationFrame(frameId);
       observer.disconnect();
+      host.removeEventListener("pointerdown", onPointerDown);
+      if (window.__murmurPondTap === onWallpaperTap)
+        window.__murmurPondTap = null;
       cityClient.stop();
       pondSound.stop();
       parkFrame(view);

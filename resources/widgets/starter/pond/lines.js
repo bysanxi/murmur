@@ -73,7 +73,7 @@ export function atmosphereOf(date) {
     lateMorning: { weather: "sunny", night: false },
     lunch: { weather: "sunny", night: false },
     afternoon: { weather: "cloudy", night: false },
-    evening: { weather: "cloudy", night: false },
+    evening: { weather: "cloudy", night: true },
     lateNight: { weather: "cloudy", night: true },
     weekend: { weather: "sunny", night: false },
   };

@@ -3,6 +3,8 @@
 #[cfg(windows)]
 pub(crate) mod desktop;
 mod script;
+#[cfg(windows)]
+pub(crate) mod tap;
 
 use anyhow::Result;
 use deskulpt_common::window::DeskulptWindow;
@@ -51,9 +53,6 @@ pub trait WindowExt<R: Runtime>: Manager<R> + SettingsExt<R> {
         .minimizable(false)
         .initialization_script(&init_js)
         .build()?;
-
-        #[cfg(windows)]
-        set_taskbar_icon(&portal);
 
         portal.set_focus()?;
 
@@ -119,80 +118,3 @@ pub trait WindowExt<R: Runtime>: Manager<R> + SettingsExt<R> {
 
 impl<R: Runtime> WindowExt<R> for App<R> {}
 impl<R: Runtime> WindowExt<R> for AppHandle<R> {}
-
-/// Install the full-resolution icon into every slot the shell reads.
-///
-/// The taskbar gets its button icon from whichever source answers first —
-/// `WM_GETICON` (`ICON_BIG`/`ICON_SMALL`), the window class icon, or an
-/// extraction from the exe — and scales whatever it receives up to the 24px
-/// taskbar slot. `icon.ico` no longer ships a 16x16 layer (its first entry,
-/// also the default window icon, is 24x24), so every source now yields the
-/// same 24px bitmap and the taskbar renders it 1:1 without upscaling.
-#[cfg(windows)]
-fn set_taskbar_icon<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
-    use once_cell::sync::OnceCell;
-    use windows::Win32::Foundation::{LPARAM, WPARAM};
-    use windows::Win32::UI::WindowsAndMessaging::{
-        CreateIcon, GCLP_HICONSM, ICON_BIG, ICON_SMALL, SendMessageW, SetClassLongPtrW, WM_SETICON,
-    };
-
-    /// The icon's edge length in pixels.
-    const SIZE: i32 = 24;
-
-    /// The `24x24` layer of `icon.ico`, row-major RGBA.
-    static RGBA: &[u8] = include_bytes!("../../icons/taskbar-24x24.rgba");
-
-    /// `HICON` wraps a raw pointer, so it is not `Send`/`Sync`. The handle is
-    /// valid for the whole process — it is never destroyed — and the cell is
-    /// only read after initialization, which makes sharing it safe.
-    #[derive(Clone, Copy)]
-    struct TaskbarIcon(windows::Win32::UI::WindowsAndMessaging::HICON);
-    unsafe impl Send for TaskbarIcon {}
-    unsafe impl Sync for TaskbarIcon {}
-
-    static ICON: OnceCell<Option<TaskbarIcon>> = OnceCell::new();
-
-    let hwnd = match window.hwnd() {
-        Ok(hwnd) => hwnd,
-        Err(error) => {
-            tracing::error!("Failed to get window hwnd for taskbar icon: {error}");
-            return;
-        },
-    };
-
-    let Some(TaskbarIcon(icon)) = ICON.get_or_init(|| {
-        let mut bgra = RGBA.to_vec();
-        let mut mask = Vec::with_capacity(RGBA.len() / 4);
-        for pixel in bgra.chunks_mut(4) {
-            mask.push(pixel[3].wrapping_sub(u8::MAX));
-            pixel.swap(0, 2);
-        }
-        unsafe {
-            match CreateIcon(None, SIZE, SIZE, 1, 32, mask.as_ptr(), bgra.as_ptr()) {
-                Ok(icon) => Some(TaskbarIcon(icon)),
-                Err(error) => {
-                    tracing::error!("Failed to create taskbar icon: {error}");
-                    None
-                },
-            }
-        }
-    }) else {
-        return;
-    };
-
-    unsafe {
-        SendMessageW(
-            hwnd,
-            WM_SETICON,
-            Some(WPARAM(ICON_BIG as usize)),
-            Some(LPARAM(icon.0 as _)),
-        );
-        SendMessageW(
-            hwnd,
-            WM_SETICON,
-            Some(WPARAM(ICON_SMALL as usize)),
-            Some(LPARAM(icon.0 as _)),
-        );
-        SetClassLongPtrW(hwnd, GCLP_HICONSM, icon.0 as _);
-    }
-}

@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_deskulpt_settings::SettingsExt;
 use tauri_plugin_deskulpt_settings::model::SettingsPatch;
 
-use crate::catalog::{WidgetCatalog, WidgetSettingsPatch};
+use crate::catalog::{WidgetCatalog, WidgetConfigValue, WidgetSettingsPatch};
 use crate::events::UpdateEvent;
 use crate::persist::{
     CanvasSize, PersistWorkerHandle, PersistedSettings, PersistedWidgetCatalogView,
@@ -31,6 +31,13 @@ enum GeometryState {
     /// Conversion has run. Records the canvas size it used so that writes
     /// normalize against the same reference.
     Ready(CanvasSize),
+}
+
+fn wants_tap(settings: &crate::catalog::WidgetSettings) -> bool {
+    matches!(
+        settings.config.get("touch"),
+        Some(WidgetConfigValue::Text(mode)) if mode == "feed" || mode == "watch"
+    )
 }
 
 /// Manager for Deskulpt widgets.
@@ -182,12 +189,15 @@ impl<R: Runtime> WidgetsManager<R> {
         // tested against unconverted defaults.
         self.ensure_geometry_ready().ok()?;
         let catalog = self.catalog.try_read()?;
-        // Fullscreen widgets cannot be dragged, so they do not capture the
-        // pointer. Other widgets include a margin outside the box: the resize
-        // handles sit on that rim, and a tight test makes them click-through.
+        // A fullscreen widget stays click-through unless it asked to take taps
+        // (feed or watch). Other widgets include a margin outside the box: the
+        // resize handles sit on that rim, and a tight test makes them
+        // click-through.
         const RESIZE_MARGIN: f64 = 16.0;
         let covers = catalog.0.values().any(|widget| {
             let settings = &widget.settings;
+            // A fullscreen wallpaper stays click-through. Taps are delivered
+            // separately so the desktop keeps its own menu.
             if settings.fullscreen {
                 return false;
             }
@@ -198,6 +208,31 @@ impl<R: Runtime> WidgetsManager<R> {
             x >= left && x <= right && y >= top && y <= bottom
         });
         Some(covers)
+    }
+
+    /// Whether the topmost widget at this canvas point asked for a tap.
+    ///
+    /// Coordinates are logical pixels of the canvas. A fullscreen widget is
+    /// tested by its box, so a click on a smaller widget above it is not a tap.
+    pub fn try_tap_point(&self, x: f64, y: f64) -> Option<bool> {
+        self.ensure_geometry_ready().ok()?;
+        let catalog = self.catalog.try_read()?;
+        let mut best: Option<(i16, bool)> = None;
+        for widget in catalog.0.values() {
+            let settings = &widget.settings;
+            let left = settings.x as f64;
+            let top = settings.y as f64;
+            let right = left + settings.width as f64;
+            let bottom = top + settings.height as f64;
+            if x < left || x > right || y < top || y > bottom {
+                continue;
+            }
+            match best {
+                Some((z, _)) if settings.z_index < z => {},
+                _ => best = Some((settings.z_index, wants_tap(settings))),
+            }
+        }
+        Some(best.is_some_and(|(_, wants)| wants))
     }
 
     /// Persist the current widgets to disk.

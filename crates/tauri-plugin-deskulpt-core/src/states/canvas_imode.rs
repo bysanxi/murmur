@@ -78,9 +78,34 @@ pub trait CanvasImodeStateExt<R: Runtime>: Manager<R> + SettingsExt<R> {
             }
         });
 
+        // Sink stays click-through. Float and auto listen so a miss can fall
+        // through. Wallpaper taps are forwarded on their own hook.
         let imode = self.settings().read().canvas_imode.clone();
-        if imode == CanvasImode::Auto || imode == CanvasImode::Float {
-            LISTENING_MOUSEMOVE.store(true, Ordering::Release);
+        LISTENING_MOUSEMOVE.store(imode != CanvasImode::Sink, Ordering::Release);
+
+        #[cfg(windows)]
+        {
+            let tapped = canvas.clone();
+            crate::window::tap::listen(canvas.clone(), move |screen_x, screen_y| {
+                let state = tapped.state::<CanvasImodeState>();
+                let layout = state.layout.read();
+                let hwnd = tapped.hwnd().ok()?.0 as isize;
+                let (origin_x, origin_y, embedded) = crate::window::tap::client_point(hwnd)?;
+                let scale = if embedded {
+                    crate::window::desktop::monitor_scale(hwnd)
+                } else if layout.inv_scale > 0.0 {
+                    1.0 / layout.inv_scale
+                } else {
+                    1.0
+                };
+                if scale <= 0.0 {
+                    return None;
+                }
+                Some((
+                    (screen_x - origin_x as f64) / scale,
+                    (screen_y - origin_y as f64) / scale,
+                ))
+            });
         }
 
         #[cfg(windows)]
@@ -166,7 +191,6 @@ impl<R: Runtime> CanvasImodeStateExt<R> for AppHandle<R> {}
 /// notification to the canvas, but failure to do so is non-fatal and will not
 /// result in an error.
 fn on_new_canvas_imode<R: Runtime>(canvas: &WebviewWindow<R>, mode: &CanvasImode) -> Result<()> {
-    let embed = *mode == CanvasImode::Sink;
     match mode {
         CanvasImode::Auto => {
             LISTENING_MOUSEMOVE.store(true, Ordering::Release);
@@ -176,28 +200,31 @@ fn on_new_canvas_imode<R: Runtime>(canvas: &WebviewWindow<R>, mode: &CanvasImode
                 restore_surface(canvas)?;
             }
         },
-        CanvasImode::Sink | CanvasImode::Float => {
+        CanvasImode::Sink => {
+            let state = canvas.state::<CanvasImodeState>();
+            let _guard = state.lock.write();
+            LISTENING_MOUSEMOVE.store(false, Ordering::Release);
+            CURSOR_IGNORED.store(true, Ordering::Release);
+            canvas.set_ignore_cursor_events(true)?;
+            #[cfg(windows)]
+            crate::window::desktop::apply(canvas, true)?;
+        },
+        CanvasImode::Float => {
             // Set the flag with write lock acquired to avoid racing with the
             // mousemove hook on setting `ignore_cursor_events`
             let state = canvas.state::<CanvasImodeState>();
             let _guard = state.lock.write();
-            // Float keeps the listener so a miss falls through to the desktop.
-            // Sink captures nothing.
-            LISTENING_MOUSEMOVE.store(!embed, Ordering::Release);
+            // A miss falls through. The fullscreen wallpaper stays
+            // click-through; its taps arrive on the click hook.
+            LISTENING_MOUSEMOVE.store(true, Ordering::Release);
             CURSOR_IGNORED.store(true, Ordering::Release);
-            if embed {
-                canvas.set_ignore_cursor_events(true)?;
-                #[cfg(windows)]
-                crate::window::desktop::apply(canvas, true)?;
-            } else {
-                #[cfg(windows)]
-                crate::window::desktop::apply(canvas, false)?;
-                canvas.set_ignore_cursor_events(true)?;
-                // Tauri rewrites the window style on the UI thread after this
-                // returns. Restore the maximized window after that rewrite.
-                #[cfg(windows)]
-                restore_surface(canvas)?;
-            }
+            #[cfg(windows)]
+            crate::window::desktop::apply(canvas, false)?;
+            canvas.set_ignore_cursor_events(true)?;
+            // Tauri rewrites the window style on the UI thread after this
+            // returns. Restore the maximized window after that rewrite.
+            #[cfg(windows)]
+            restore_surface(canvas)?;
         },
     }
 
