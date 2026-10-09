@@ -16,6 +16,9 @@ jobs:
     # skipped entirely when no certificate is configured.
     env:
       HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      # tauri-action refuses to run without it. Job scope so neither build
+      # step can forget to declare it.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
