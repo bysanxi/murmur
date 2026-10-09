@@ -9,12 +9,13 @@ jobs:
   release:
     permissions:
       contents: write
-    # Job-level so the macOS steps can branch on them in their `if:` — without
-    # the secrets they are empty and macOS still ships an unsigned build.
+    # Tauri enters its signing path as soon as `APPLE_CERTIFICATE` exists in
+    # the environment — even as an empty string — and then dies on
+    # `security import`. So never export it here: expose only a boolean flag,
+    # and put the real secrets in the env of the signed build step, which is
+    # skipped entirely when no certificate is configured.
     env:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -58,7 +59,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Import Apple Developer Certificate
-        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERT == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -70,20 +75,33 @@ jobs:
           security find-identity -v -p codesigning build.keychain
 
       - name: Verify Certificate
-        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERT == 'true'
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Apple Development")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
 
-      - name: Build murmur
+      # Two mutually exclusive steps rather than one step with a conditional
+      # env: a step that is skipped never injects its env, so the unsigned
+      # variant cannot leak an empty APPLE_CERTIFICATE into the Tauri build.
+      - name: Build murmur (signed)
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERT == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+        with:
+          args: --target ${{ matrix.target }}
+          tagName: v__VERSION__
+          releaseName: "murmur v__VERSION__"
+          releaseBody: ${{ steps.release-notes.outputs.RELEASE_NOTES }}
+
+      - name: Build murmur
+        if: ${{ !(matrix.platform == 'macos-latest' && env.HAS_APPLE_CERT == 'true') }}
+        uses: tauri-apps/tauri-action@v0
         with:
           args: --target ${{ matrix.target }}
           tagName: v__VERSION__
@@ -104,18 +122,44 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
+          # This job has no checkout, so gh cannot infer the repository from
+          # the working directory — it would fail with "not a git repository"
+          # and, with stderr discarded, look like a missing release.
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if ! gh release view "$TAG" > /dev/null 2>&1; then
-            echo "::notice::No release exists for $TAG, nothing to alias."
-            exit 0
-          fi
-          mkdir -p assets
-          gh release download "$TAG" --dir assets || true
-          if [ -z "$(ls -A assets)" ]; then
-            echo "::notice::Release $TAG has no assets yet, nothing to alias."
-            exit 0
-          fi
+
+          # tauri-action creates the release from inside each matrix job, so
+          # this job can start before the release exists — and before its
+          # assets are visible. Poll instead of quietly doing nothing: the
+          # first run reported success while creating zero aliases.
+          for attempt in $(seq 1 20); do
+            if gh release view "$TAG" --repo "$REPO" > /dev/null 2>&1; then
+              break
+            fi
+            echo "release $TAG not visible yet (attempt $attempt), waiting 15s"
+            sleep 15
+            if [ "$attempt" -eq 20 ]; then
+              echo "::error::Release $TAG never appeared; aliases were not created."
+              exit 1
+            fi
+          done
+
+          for attempt in $(seq 1 20); do
+            rm -rf assets
+            mkdir -p assets
+            gh release download "$TAG" --repo "$REPO" --dir assets > /dev/null 2>&1 || true
+            if [ -n "$(ls -A assets)" ]; then
+              break
+            fi
+            echo "no assets visible yet (attempt $attempt), waiting 15s"
+            sleep 15
+            if [ "$attempt" -eq 20 ]; then
+              echo "::error::Release $TAG has no assets; aliases were not created."
+              exit 1
+            fi
+          done
+
           shopt -s nullglob
           aliases=(
             "*_x64-setup.exe:murmur-windows-x64-setup.exe"
@@ -126,6 +170,7 @@ jobs:
             "*.deb:murmur-linux-amd64.deb"
             "*.rpm:murmur-linux-x86_64.rpm"
           )
+          aliased=0
           for entry in "${aliases[@]}"; do
             pattern="${entry%%:*}"
             stable_name="${entry##*:}"
@@ -136,7 +181,13 @@ jobs:
             fi
             original="${matches[0]}"
             cp "$original" "assets/$stable_name"
-            gh release upload "$TAG" "assets/$stable_name" --clobber
-            gh release delete-asset "$TAG" "$(basename "$original")" --yes
+            gh release upload "$TAG" --repo "$REPO" "assets/$stable_name" --clobber
+            gh release delete-asset "$TAG" --repo "$REPO" "$(basename "$original")" --yes
             echo "aliased $(basename "$original") -> $stable_name"
+            aliased=$((aliased + 1))
           done
+          echo "created $aliased alias(es)"
+          if [ "$aliased" -eq 0 ]; then
+            echo "::error::No aliases were created for $TAG."
+            exit 1
+          fi
