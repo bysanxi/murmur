@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Needed for changelog generation
 
@@ -87,7 +87,7 @@ jobs:
       # variant cannot leak an empty APPLE_CERTIFICATE into the Tauri build.
       - name: Build murmur (signed)
         if: matrix.platform == 'macos-latest' && env.HAS_APPLE_CERT == 'true'
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -101,7 +101,7 @@ jobs:
 
       - name: Build murmur
         if: ${{ !(matrix.platform == 'macos-latest' && env.HAS_APPLE_CERT == 'true') }}
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         with:
           args: --target ${{ matrix.target }}
           tagName: v__VERSION__
