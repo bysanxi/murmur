@@ -35,7 +35,7 @@ const widgetText = (
   if (typeof value === "string") return value;
   return (
     value[language] ??
-    value.en ??
+    value["en"] ??
     value["zh-CN"] ??
     Object.values(value)[0] ??
     ""
@@ -45,7 +45,7 @@ const widgetText = (
 const groupKey = (group: DeskulptWidgets.WidgetText) =>
   typeof group === "string"
     ? group
-    : (group["zh-CN"] ?? group.en ?? Object.values(group)[0] ?? "");
+    : (group["zh-CN"] ?? group["en"] ?? Object.values(group)[0] ?? "");
 
 const writeConfig = (
   id: string,

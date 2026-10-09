@@ -30,7 +30,10 @@ The first launch copies this directory into the live widgets folder (`target/deb
 | `vendor/pond-data-xieyi.js` | The ink pond photograph on `window.POND_IMAGE_XIEYI`.                                                                             |
 | `style-swap.js`             | Decodes the next bed and repaints sprites before one frame commits the swap.                                                      |
 
-The engine is the fishwallpaper implementation, trimmed to a viewing pond. Feeding, hand-drawn patterns, city weather, and saved fish are not wired up. Sound is one of this widget's own settings, played by `sound.js`.
+The engine is the [fishwallpaper](https://github.com/moli-xia/fishwallpaper)
+implementation (MIT), trimmed to a viewing pond. Feeding, hand-drawn patterns,
+city weather, and saved fish are not wired up. Sound is one of this widget's
+own settings, played by `sound.js`.
 
 ## Engine assets
 

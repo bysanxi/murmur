@@ -1,4 +1,5 @@
-// Live weather for a chosen city. Open-Meteo, same mapping as fishwallpaper.
+// Live weather for a chosen city (Open-Meteo). City mapping follows
+// fishwallpaper (https://github.com/moli-xia/fishwallpaper), MIT.
 
 export function parseCity(value) {
   if (typeof value !== "string" || !value) return null;

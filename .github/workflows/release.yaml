@@ -9,6 +9,12 @@ jobs:
   release:
     permissions:
       contents: write
+    # Job-level so the macOS steps can branch on them in their `if:` — without
+    # the secrets they are empty and macOS still ships an unsigned build.
+    env:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
     strategy:
       fail-fast: false
       matrix:
@@ -43,16 +49,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
-          git-cliff --latest >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "RELEASE_NOTES<<EOF"
+            if ! git-cliff --latest; then
+              echo "::warning::git-cliff failed, publishing without release notes"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Import Apple Developer Certificate
-        if: matrix.platform == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
         run: |
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -64,14 +70,14 @@ jobs:
           security find-identity -v -p codesigning build.keychain
 
       - name: Verify Certificate
-        if: matrix.platform == 'macos-latest'
+        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Apple Development")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
 
-      - name: Build Deskulpt
+      - name: Build murmur
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -81,5 +87,56 @@ jobs:
         with:
           args: --target ${{ matrix.target }}
           tagName: v__VERSION__
-          releaseName: "Deskulpt v__VERSION__"
+          releaseName: "murmur v__VERSION__"
           releaseBody: ${{ steps.release-notes.outputs.RELEASE_NOTES }}
+
+  finalize:
+    # Tauri's asset names embed the version (murmur_0.3.0_x64-setup.exe), so
+    # every direct link in the README would rot on the next bump. Re-upload each
+    # installer under a version-independent name once all platforms are done.
+    if: ${{ !cancelled() }}
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Add version-independent asset aliases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::notice::No release exists for $TAG, nothing to alias."
+            exit 0
+          fi
+          mkdir -p assets
+          gh release download "$TAG" --dir assets || true
+          if [ -z "$(ls -A assets)" ]; then
+            echo "::notice::Release $TAG has no assets yet, nothing to alias."
+            exit 0
+          fi
+          shopt -s nullglob
+          aliases=(
+            "*_x64-setup.exe:murmur-windows-x64-setup.exe"
+            "*_x64_en-US.msi:murmur-windows-x64.msi"
+            "*aarch64.dmg:murmur-macos-aarch64.dmg"
+            "*_x64.dmg:murmur-macos-x64.dmg"
+            "*.AppImage:murmur-linux-x86_64.AppImage"
+            "*.deb:murmur-linux-amd64.deb"
+            "*.rpm:murmur-linux-x86_64.rpm"
+          )
+          for entry in "${aliases[@]}"; do
+            pattern="${entry%%:*}"
+            stable_name="${entry##*:}"
+            matches=(assets/$pattern)
+            if [ "${#matches[@]}" -eq 0 ]; then
+              echo "::warning::No release asset matched $pattern"
+              continue
+            fi
+            original="${matches[0]}"
+            cp "$original" "assets/$stable_name"
+            gh release upload "$TAG" "assets/$stable_name" --clobber
+            gh release delete-asset "$TAG" "$(basename "$original")" --yes
+            echo "aliased $(basename "$original") -> $stable_name"
+          done

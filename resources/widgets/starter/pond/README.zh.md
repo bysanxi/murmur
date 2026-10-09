@@ -31,7 +31,9 @@
 | `vendor/pond-data-xieyi.js` | 写意池塘照片，放在 `window.POND_IMAGE_XIEYI`。                   |
 | `style-swap.js`             | 先解码新底图、画好贴图，再在一帧里提交切换。                     |
 
-引擎来自 fishwallpaper，只保留观赏。投喂、手绘图案、城市天气和鱼的存档都没有接上。声音接上了：选项在本组件的设置里，由 `sound.js` 播放。
+引擎来自 [fishwallpaper](https://github.com/moli-xia/fishwallpaper)（MIT），
+只保留观赏。投喂、手绘图案、城市天气和鱼的存档都没有接上。声音接上了：选项
+在本组件的设置里，由 `sound.js` 播放。
 
 ## 引擎素材
 

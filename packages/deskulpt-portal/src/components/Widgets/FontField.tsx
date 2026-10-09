@@ -103,7 +103,8 @@ const FontField = ({
       disabled={disabled}
       value={selected}
       onOpenChange={(open) => {
-        if (!open) setQuery("");
+        if (open) requestAnimationFrame(() => searchRef.current?.focus());
+        else setQuery("");
       }}
       onValueChange={(next) =>
         DeskulptWidgets.Commands.updateSettings(id, {
@@ -112,14 +113,7 @@ const FontField = ({
       }
     >
       <Select.Trigger style={{ fontFamily: previewOf(selected) }} />
-      <Select.Content
-        position="popper"
-        css={menu}
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          searchRef.current?.focus();
-        }}
-      >
+      <Select.Content position="popper" css={menu}>
         <div
           style={{ flexShrink: 0, padding: "4px 4px 6px" }}
           onPointerDown={(event) => event.stopPropagation()}

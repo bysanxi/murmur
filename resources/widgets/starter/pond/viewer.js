@@ -1,5 +1,6 @@
 // Viewing-only host for the pond engine in vendor/.
-// The engine comes from the independent fishwallpaper implementation.
+// Derived from fishwallpaper (https://github.com/moli-xia/fishwallpaper), MIT,
+// modified for this widget.
 
 import { createCityWeather, parseCity } from "./city.js";
 import { createPondSound } from "./sound.js";
