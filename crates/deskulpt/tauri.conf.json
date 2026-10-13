@@ -3,7 +3,7 @@
   "version": "../../package.json",
   "identifier": "yoga.murmur.desktop",
   "build": {
-    "beforeDevCommand": "pnpm dev:js",
+    "beforeDevCommand": "pnpm sync:frog:dev && pnpm dev:js",
     "beforeBuildCommand": "pnpm build:js",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../../dist"

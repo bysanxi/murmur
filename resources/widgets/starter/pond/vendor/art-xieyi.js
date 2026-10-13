@@ -116,6 +116,12 @@
     if (turtle && sat > 0.1 && hue >= 32 && hue < 72)
       return inkRamp(INK_OCHRE, lum, 0.18);
     if (turtle && sat >= 0.24) return inkRamp(INK_SHELL, lum, 0.18);
+    // Frog dorsal highlights are pale green, not exposed neutral paper.
+    // A continuous ramp avoids a hard grey island at the saturation threshold.
+    if (mode === "frog" && hue >= 72 && hue < 155 && sat > 0.08) {
+      const k = smooth(0.3, 0.85, lum) * 0.45;
+      return INK_GREEN.map((v, i) => mix(v, INK_JADE[i], k));
+    }
     // Amber and yellow stay yamabuki. They used to fall through into mineral green.
     if (sat > 0.1 && hue >= 26 && hue < 72) return goldBlock(lum);
     if (sat < 0.24) {
@@ -1644,6 +1650,706 @@
     inkWash(ctx, c.width, c.height, 81, ppu);
     return { canvas: c, ppu, px: 0.5, py: 0.5 };
   }
+  // Ink frogs: mineral green and a warm neutral, flat blocks under the wash.
+  const FROGS = [
+    {
+      back: "#38624a",
+      light: "#93b39a",
+      fold: "#1f3a2c",
+      spot: "#16241c",
+      belly: "#d3cbb2",
+      throat: "#ece5d0",
+      iris: "#a5833f",
+      eye: "#101208",
+    },
+    {
+      back: "#6b5d48",
+      light: "#aa9a7b",
+      fold: "#3b3325",
+      spot: "#28221a",
+      belly: "#d8cfb6",
+      throat: "#ece4cd",
+      iris: "#9d8048",
+      eye: "#14100a",
+    },
+  ];
+  // Same geometry as art-real's frogs; the paint is flat ink blocks under a wash.
+  function frogSprites(v, ppu = 5) {
+    const F = FROGS[v],
+      out = {};
+    // Body: short and plump — a broad flat head tapering to a blunt snout
+    // (spec §2.1), full hips with real volume behind the waist, so the thick
+    // hind legs grow out of a pelvis instead of a stick. Wash the block
+    // first; the fold lines and mouth stay crisp on top — the eyes live in
+    // their own sprite so the scene can lift them out of the fog.
+    {
+      const c = canvas(28 * ppu, 22 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(14, 11);
+      const p = new Path2D();
+      // One olive-shaped trunk: broadest at the middle, continuously
+      // narrowing into the rounded snout and pelvis. Eyes keep their anchors.
+      p.moveTo(12.13, 0);
+      p.bezierCurveTo(12.13, 0.7, 11.85, 1.05, 11.2, 1.45);
+      p.bezierCurveTo(9.9, 2.25, 9.2, 4.3, 7.3, 5.75);
+      p.bezierCurveTo(5.8, 6.65, 4.5, 6.3, 2.8, 6.65);
+      p.bezierCurveTo(0.6, 7.15, -2.4, 7.15, -4.4, 6.75);
+      p.bezierCurveTo(-6.1, 6.4, -7.6, 6.2, -9.4, 4.55);
+      p.bezierCurveTo(-11.4, 2.9, -13, 1.4, -13, 0);
+      p.bezierCurveTo(-13, -1.4, -11.4, -2.9, -9.4, -4.55);
+      p.bezierCurveTo(-7.6, -6.2, -6.1, -6.4, -4.4, -6.75);
+      p.bezierCurveTo(-2.4, -7.15, 0.6, -7.15, 2.8, -6.65);
+      p.bezierCurveTo(4.5, -6.3, 5.8, -6.65, 7.3, -5.75);
+      p.bezierCurveTo(9.2, -4.3, 9.9, -2.25, 11.2, -1.45);
+      p.bezierCurveTo(11.85, -1.05, 12.13, -0.7, 12.13, 0);
+      p.closePath();
+      const g = x.createRadialGradient(-1.5, -0.5, 1, 0, 0, 10.5);
+      g.addColorStop(0, F.light);
+      g.addColorStop(0.55, F.back);
+      g.addColorStop(1, F.fold);
+      x.fillStyle = g;
+      x.fill(p);
+      x.save();
+      x.clip(p);
+      const n = valueNoise(v * 47 + 9);
+      for (let i = 0; i < 34; i++) {
+        const px = -9 + n(i * 0.83, 2.7) * 19,
+          py = (n(5.1, i * 0.61) - 0.5) * 9;
+        x.beginPath();
+        x.arc(px, py, 0.2 + n(i, 3.3) * 0.2, 0, TAU);
+        x.fillStyle = "rgba(14,20,16,.3)";
+        x.fill();
+      }
+      for (const [bx, by, br] of [
+        [3.5, -2.1, 2.4],
+        [-2.5, 2.3, 2.9],
+        [-6, -2, 1.9],
+      ]) {
+        x.beginPath();
+        x.arc(bx, by, br, 0, TAU);
+        x.fillStyle = F.spot;
+        x.globalAlpha = 0.35;
+        x.fill();
+        x.globalAlpha = 1;
+      }
+      const fl = x.createLinearGradient(0, -6.6, 0, 6.6);
+      fl.addColorStop(0, "rgba(226,220,200,0)");
+      fl.addColorStop(0.3, "rgba(226,220,200,0)");
+      fl.addColorStop(0.5, "rgba(226,220,200,.16)");
+      fl.addColorStop(0.7, "rgba(226,220,200,0)");
+      fl.addColorStop(1, "rgba(226,220,200,0)");
+      x.fillStyle = fl;
+      x.fillRect(-11.5, -7.2, 23, 14.4);
+      x.restore();
+      // Haunch shading belongs to the trunk, not to a outlined joint badge.
+      x.save();
+      x.clip(p);
+      for (const s of [-1, 1]) {
+        const hg = x.createRadialGradient(
+          -5.8,
+          s * 4.5,
+          0.2,
+          -5.8,
+          s * 4.5,
+          4.2,
+        );
+        hg.addColorStop(0, F.light);
+        hg.addColorStop(1, "rgba(0,0,0,0)");
+        x.fillStyle = hg;
+        x.globalAlpha = 0.22;
+        x.fillRect(-10.5, s > 0 ? 0 : -9, 9, 9);
+      }
+      x.restore();
+      inkWash(x, c.width, c.height, v + 83, ppu, "frog");
+      x.lineCap = "round";
+      // A dark contour around the whole silhouette — the key line that keeps
+      // the frog readable through the water fog.
+      x.strokeStyle = "rgba(12,16,11,.5)";
+      x.lineWidth = 0.45;
+      x.stroke(p);
+      for (const s of [-1, 1]) {
+        x.beginPath();
+        x.moveTo(7.6, s * 3.6);
+        x.quadraticCurveTo(0, s * 4.2, -8.4, s * 3.0);
+        x.strokeStyle = F.fold;
+        x.globalAlpha = 0.75;
+        x.lineWidth = 0.55;
+        x.stroke();
+        x.globalAlpha = 1;
+      }
+      x.save();
+      x.clip(p);
+      for (const s of [-1, 1]) {
+        // Deep sockets under where the bulging eye sprites sit — on the
+        // head's widest flanks, not the crown midline.
+        x.beginPath();
+        x.arc(7.4, s * 5.55, 2.45, 0, TAU);
+        x.fillStyle = F.spot;
+        x.globalAlpha = 0.2;
+        x.fill();
+        x.globalAlpha = 1;
+      }
+      x.restore();
+      // Quiet lateral lip edges, not a dark divider cutting off the nose.
+      for (const side of [-1, 1]) {
+        x.beginPath();
+        x.moveTo(9.4, side * 2.3);
+        x.quadraticCurveTo(10.35, side * 1.9, 11.35, side * 1.25);
+        x.strokeStyle = "rgba(24,32,18,.25)";
+        x.lineWidth = 0.28;
+        x.stroke();
+      }
+      // Two quiet dorsal nostrils; eye sockets stay at their established anchors.
+      for (const side of [-1, 1]) {
+        x.beginPath();
+        x.ellipse(9.4, side * 1.55, 0.24, 0.34, side * 0.2, 0, TAU);
+        x.fillStyle = F.fold;
+        x.globalAlpha = 0.55;
+        x.fill();
+        x.globalAlpha = 1;
+      }
+      out.body = { canvas: c, ppu, px: 0.5, py: 0.5 };
+    }
+    // Eyes: two bulging domes on the head's widest flanks — close to the
+    // silhouette edges, never the crown midline. The sprite's local x runs
+    // along the body axis and its y across it, so the pair sits at
+    // (fwd, ±side). Iris, pupil and catchlight lean OUTWARD so the top view
+    // reads as eyes facing the sides, not two full circles on top. Their own
+    // sprite so the scene can hold them out of the fog and lift them above
+    // the body.
+    {
+      const c = canvas(5.6 * ppu, 15.2 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(2.8, 7.6);
+      for (const s of [-1, 1]) {
+        const ex = 0.7,
+          ey = s * 5.1;
+        x.beginPath();
+        x.arc(ex, ey, 2.0, 0, TAU);
+        x.strokeStyle = "rgba(14,16,11,.82)";
+        x.lineWidth = 0.4;
+        x.stroke();
+        x.beginPath();
+        x.arc(ex, ey + s * 0.3, 1.82, 0, TAU);
+        x.fillStyle = F.iris;
+        x.fill();
+        x.beginPath();
+        x.ellipse(ex + 0.1, ey + s * 0.45, 0.98, 1.26, 0, 0, TAU);
+        x.fillStyle = F.eye;
+        x.fill();
+        x.beginPath();
+        x.arc(ex - 0.7, ey - 0.85 + s * 0.45, 0.4, 0, TAU);
+        x.fillStyle = "rgba(240,240,228,.92)";
+        x.fill();
+      }
+      out.eyes = { canvas: c, ppu, px: 0.5, py: 0.5 };
+    }
+    // One eye, centered on its own local origin.  The scene places it twice
+    // from the same head coordinate system and mirrors the outward gaze.
+    {
+      const c = canvas(5.2 * ppu, 5.2 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(2.6, 2.6);
+      x.scale(0.9, 0.9);
+      x.beginPath();
+      x.arc(0, 0, 1.92, 0, TAU);
+      x.fillStyle = v === 0 ? "#a39a62" : "#a4976c";
+      x.fill();
+      x.strokeStyle = "rgba(35,42,25,.28)";
+      x.lineWidth = 0.16;
+      x.stroke();
+      x.beginPath();
+      x.ellipse(0.08, 0.42, 0.78, 1.16, 0, 0, TAU);
+      x.fillStyle = F.eye;
+      x.fill();
+      x.beginPath();
+      x.arc(-0.62, -0.15, 0.25, 0, TAU);
+      x.fillStyle = "rgba(238,238,220,.72)";
+      x.fill();
+      // Keep the iris intact; the socket is a soft peripheral rim, not a
+      // solid green cap. Local -Y faces the skull on both mirrored eyes.
+      x.beginPath();
+      x.arc(0, 0, 1.89, Math.PI * 1.12, Math.PI * 1.88);
+      x.strokeStyle = "rgba(47,57,31,.22)";
+      x.lineWidth = 0.14;
+      x.stroke();
+      inkWash(x, c.width, c.height, v + 97, ppu);
+      // The common ink palette re-warms ochre. Desaturate only warm iris
+      // texels here, leaving the green socket skin and every other sprite alone.
+      const irisPixels = x.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < irisPixels.data.length; i += 4) {
+        const r = irisPixels.data[i],
+          g = irisPixels.data[i + 1],
+          b = irisPixels.data[i + 2];
+        if (r > g * 1.02 && g > b * 1.12) {
+          const grey = r * 0.299 + g * 0.587 + b * 0.114;
+          for (let channel = 0; channel < 3; channel++)
+            irisPixels.data[i + channel] =
+              0.6 * irisPixels.data[i + channel] + 0.4 * grey;
+        }
+      }
+      x.putImageData(irisPixels, 0, 0);
+      out.eye = { canvas: c, ppu, px: 0.5, py: 0.5 };
+    }
+    // Throat: the vocal sac under the chin, drawn below the body so it peeks
+    // out when it fills; a pale paper blob, washed at the edge.
+    {
+      const c = canvas(12 * ppu, 10 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(6, 5);
+      const g = x.createRadialGradient(0, -0.8, 0.5, 0, 0, 5);
+      g.addColorStop(0, "#f2ecd8");
+      g.addColorStop(0.7, F.throat);
+      g.addColorStop(1, F.belly);
+      x.fillStyle = g;
+      x.beginPath();
+      x.ellipse(0, 0, 5, 4.1, 0, 0, TAU);
+      x.fill();
+      inkWash(x, c.width, c.height, v + 89, ppu);
+      out.throat = { canvas: c, ppu, px: 0.5, py: 0.5 };
+    }
+    // Hind thigh: heavy at the hip, tapering to the knee; drawn for the right
+    // flank and mirrored for the left.
+    {
+      const c = canvas(13 * ppu, 11 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(1, 5.5);
+      const p = new Path2D();
+      // A thick muscle: very fat where it roots into the pelvis — the widest
+      // segment of the leg — tapering to the knee. Thigh > shin > ankle.
+      // Rounded muscle belly sits near the pelvis; both edges taper gradually
+      // into a blunt knee instead of converging as a triangular fan.
+      p.moveTo(-0.7, -2.727946);
+      p.bezierCurveTo(1.2, -3.128898, 3.4, -3.696388, 5.1, -3.696388);
+      p.bezierCurveTo(6.6, -3.78235, 7.9, -2.212802, 9.15, -1.216993);
+      p.bezierCurveTo(9.7, -1.023845, 10.4, -0.859772, 10.8, -0.98);
+      p.quadraticCurveTo(11.9, 0, 10.8, 0.98);
+      p.bezierCurveTo(10.4, 0.859772, 9.7, 1.023845, 9.15, 1.216993);
+      p.bezierCurveTo(7.9, 2.212802, 6.6, 3.78235, 5.1, 3.696388);
+      p.bezierCurveTo(3.4, 3.696388, 1.2, 3.128898, -0.7, 2.727946);
+      p.bezierCurveTo(-1.05, 0.944289, -1.05, -0.944289, -0.7, -2.727946);
+      p.closePath();
+      const g = x.createLinearGradient(0, -5.0, 0, 5.0);
+      g.addColorStop(0, F.light);
+      g.addColorStop(1, F.fold);
+      x.fillStyle = g;
+      x.fill(p);
+      x.save();
+      x.clip(p);
+      const n = valueNoise(v * 53 + 17);
+      for (let i = 0; i < 12; i++) {
+        x.beginPath();
+        x.arc(
+          1 + n(i * 0.9, 4.1) * 10,
+          (n(2.2, i * 0.7) - 0.5) * 5,
+          0.18 + n(i, 6) * 0.16,
+          0,
+          TAU,
+        );
+        x.fillStyle = "rgba(14,20,16,.26)";
+        x.fill();
+      }
+      const stripe = x.createLinearGradient(0.5, 0, 9.8, 0);
+      stripe.addColorStop(0, "rgba(35,48,21,0)");
+      stripe.addColorStop(0.18, "rgba(35,48,21,.22)");
+      stripe.addColorStop(0.58, "rgba(35,48,21,.31)");
+      stripe.addColorStop(1, "rgba(35,48,21,0)");
+      x.strokeStyle = stripe;
+      x.lineWidth = 0.58;
+      x.lineCap = "round";
+      for (const side of [-1, 1]) {
+        x.beginPath();
+        x.moveTo(0.5, side * 0.84);
+        x.bezierCurveTo(3.4, side * 1.22, 6.9, side * 1.13, 9.65, side * 0.48);
+        x.stroke();
+      }
+      x.restore();
+      inkWash(x, c.width, c.height, v + 97, ppu);
+      // A soft unoutlined root can overlap the pelvis without a visible badge.
+      x.save();
+      x.globalCompositeOperation = "destination-in";
+      const rootFade = x.createLinearGradient(-1, 0, 0.8, 0);
+      rootFade.addColorStop(0, "rgba(0,0,0,0)");
+      rootFade.addColorStop(1, "rgba(0,0,0,1)");
+      x.fillStyle = rootFade;
+      x.fillRect(-1, -5.5, 13, 11);
+      x.restore();
+      out.thigh = { canvas: c, ppu, px: 1 / 13, py: 0.5 };
+      // The calf lies beneath this muscle. Fade just the distal overlap,
+      // not the entire knee, so bent joints do not reveal a hard cap edge.
+      x.save();
+      x.globalCompositeOperation = "destination-in";
+      const kneeFade = x.createLinearGradient(9.2, 0, 11.8, 0);
+      kneeFade.addColorStop(0, "rgba(0,0,0,1)");
+      kneeFade.addColorStop(0.5, "rgba(0,0,0,0.9)");
+      kneeFade.addColorStop(1, "rgba(0,0,0,0)");
+      x.fillStyle = kneeFade;
+      x.fillRect(-1, -5.5, 13, 11);
+      x.restore();
+    }
+    // Unoutlined skin ribbon across the knee, aligned to both adjacent bones.
+    // Its tapered ends blend into muscle rather than forming a joint badge.
+    {
+      const c = canvas(5 * ppu, 3 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(2.5, 1.5);
+      const p = new Path2D();
+      p.moveTo(-1.95, -0.95);
+      p.lineTo(1.95, -0.95);
+      p.quadraticCurveTo(2.1, -0.95, 2.1, -0.8);
+      p.lineTo(2.1, 0.8);
+      p.quadraticCurveTo(2.1, 0.95, 1.95, 0.95);
+      p.lineTo(-1.95, 0.95);
+      p.quadraticCurveTo(-2.1, 0.95, -2.1, 0.8);
+      p.lineTo(-2.1, -0.8);
+      p.quadraticCurveTo(-2.1, -0.95, -1.95, -0.95);
+      p.closePath();
+      const skin = x.createLinearGradient(0, -3.5, 0, 3.5);
+      skin.addColorStop(0, F.light);
+      skin.addColorStop(1, F.fold);
+      x.fillStyle = skin;
+      x.fill(p);
+      x.globalCompositeOperation = "destination-in";
+      const fade = x.createLinearGradient(-2.1, 0, 2.1, 0);
+      fade.addColorStop(0, "rgba(0,0,0,0)");
+      fade.addColorStop(0.06, "rgba(0,0,0,1)");
+      fade.addColorStop(0.94, "rgba(0,0,0,1)");
+      fade.addColorStop(1, "rgba(0,0,0,0)");
+      x.fillStyle = fade;
+      x.fillRect(-2.5, -1.5, 5, 3);
+      out.knee = { canvas: c, ppu, px: 0.5, py: 0.5 };
+    }
+    // Shin: the knee-to-ankle bone only — the web hangs off its own sprite so
+    // the scene can open and close it (fish-fin scheme: one sprite, pose by
+    // transform). Drawn for the right flank, mirrored for the left.
+    {
+      const c = canvas(13 * ppu, 7 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(0.5, 3.5);
+      // Rounded knee, gently curved calf, narrow ankle; not an equal-width rod.
+      const p = new Path2D();
+      // The extremum of the rounded ankle is x=5.5, matching shinLength.
+      p.moveTo(-0.5, -1.281755);
+      p.bezierCurveTo(0.75, -2.446875, 2.3, -2.19375, 3.15, -1.603125);
+      p.bezierCurveTo(4.15, -0.979424, 4.9, -0.549835, 5.2, -0.431346);
+      p.quadraticCurveTo(5.8, 0, 5.2, 0.431346);
+      p.bezierCurveTo(4.1, 1.165356, 3.3, 1.879855, 2.3, 2.109375);
+      p.bezierCurveTo(1.15, 2.278125, 0.15, 1.896565, -0.5, 1.098647);
+      p.quadraticCurveTo(-0.65, 0, -0.5, -1.281755);
+      p.closePath();
+      const calfShade = x.createLinearGradient(0, -3.5, 0, 3.5);
+      calfShade.addColorStop(0, F.light);
+      calfShade.addColorStop(1, F.fold);
+      x.fillStyle = calfShade;
+      x.fill(p);
+      x.save();
+      x.clip(p);
+      const calfStripe = x.createLinearGradient(0.2, 0, 5.1, 0);
+      calfStripe.addColorStop(0, "rgba(35,48,21,0)");
+      calfStripe.addColorStop(0.25, "rgba(35,48,21,.25)");
+      calfStripe.addColorStop(0.72, "rgba(35,48,21,.31)");
+      calfStripe.addColorStop(1, "rgba(35,48,21,0)");
+      x.strokeStyle = calfStripe;
+      x.lineCap = "round";
+      x.lineWidth = 0.36;
+      for (const side of [-1, 1]) {
+        x.beginPath();
+        x.moveTo(0.2, side * 0.35);
+        x.bezierCurveTo(1.7, side * 0.78, 3.5, side * 0.55, 5.05, side * 0.12);
+        x.stroke();
+      }
+      for (const [px, py, radius] of [
+        [1.05, -0.78, 0.18],
+        [2.5, 0.82, 0.2],
+        [3.65, -0.52, 0.16],
+      ]) {
+        x.beginPath();
+        x.ellipse(px, py, radius * 1.25, radius, -0.2, 0, TAU);
+        x.fillStyle = "rgba(24,31,26,.34)";
+        x.fill();
+      }
+      x.restore();
+      x.lineCap = "round";
+      x.strokeStyle = F.light;
+      x.globalAlpha = 0.35;
+      x.lineWidth = 0.22;
+      x.beginPath();
+      x.moveTo(0, -0.2);
+      x.bezierCurveTo(1.85, 0.25, 3, 0.55, 5.1, 0);
+      x.stroke();
+      x.globalAlpha = 1;
+      out.shin = { canvas: c, ppu, px: 0.5 / 13, py: 0.5 };
+      // Hide the proximal cap under the joint skin, rather than painting
+      // a hard vertical edge where calf and thigh meet.
+      x.save();
+      x.globalCompositeOperation = "destination-in";
+      const kneeBlend = x.createLinearGradient(-0.7, 0, 0.9, 0);
+      kneeBlend.addColorStop(0, "rgba(0,0,0,0)");
+      kneeBlend.addColorStop(1, "rgba(0,0,0,1)");
+      x.fillStyle = kneeBlend;
+      x.fillRect(-0.5, -3.5, 13, 7);
+      x.restore();
+    }
+    // Webbed hind foot: five unequal toes and an elongated solid palm.
+    // The outline reads "palm + toes + web", never a solid spike. The scene
+    // squeezes the sprite across the fan to close it — web opens through the
+    // push, closes through glide/recovery. Semi-transparent so the
+    // water reads through it.
+    {
+      const palmExtension = 6.0;
+      const width = 10.2 + palmExtension;
+      const c = canvas(width * ppu, 9.6 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(2.64, 4.8);
+      x.lineCap = "round";
+      // Preserve reach, but allocate length to the toe rays and membrane
+      // rather than a long solid stalk. All parts share one fixed sprite.
+      const tips = [
+        [12.8, -3.7],
+        [12.15, -2.1],
+        [12.9, -0.55],
+        [12.4, 1.1],
+        [12.6, 2.45],
+      ];
+      const p = new Path2D();
+      p.moveTo(1.2, 0);
+      const roots = [
+        [1.8, -0.55],
+        [2.3, -0.38],
+        [2.7, -0.1],
+        [2.3, 0.32],
+        [1.7, 0.5],
+      ];
+      const ends = tips.map(([tx, ty], i) => [
+        roots[i][0] + (tx - roots[i][0]) * 0.95,
+        roots[i][1] + (ty - roots[i][1]) * 0.95,
+      ]);
+      p.bezierCurveTo(3.5, -0.9, 8.7, -3.3, ...ends[0]);
+      for (let i = 1; i < tips.length; i++) {
+        const prev = ends[i - 1],
+          next = ends[i];
+        p.quadraticCurveTo(
+          (prev[0] + next[0]) / 2 - [0, 0.95, 0.55, 1.3, 0.8][i],
+          prev[1] + (next[1] - prev[1]) * [0, 0.35, 0.62, 0.4, 0.67][i],
+          ...next,
+        );
+      }
+      p.bezierCurveTo(7.8, 1.15, 3.1, 0.38, 1.2, 0);
+      p.closePath();
+      const membrane = x.createLinearGradient(1.2, 0, 13.2, 0);
+      membrane.addColorStop(0, "rgba(155,153,128,0.68)");
+      membrane.addColorStop(0.4, "rgba(170,149,153,0.6)");
+      membrane.addColorStop(1, "rgba(197,173,184,0.5)");
+      x.fillStyle = membrane;
+      x.globalAlpha = 1;
+      x.fill(p);
+      x.globalAlpha = 1;
+      x.strokeStyle = "rgba(14,16,11,.6)";
+      x.lineWidth = 0.16;
+      x.stroke(p);
+      // A narrow muscular palm bridges the tarsus to the separate toe roots.
+      const palm = new Path2D();
+      palm.moveTo(-0.15, -0.38);
+      palm.bezierCurveTo(1.4, -0.48, 1.75, -0.85, 2.75, -0.48);
+      palm.quadraticCurveTo(3.1, -0.05, 2.5, 0.65);
+      palm.bezierCurveTo(1.65, 0.8, 1.4, 0.4, -0.15, 0.38);
+      palm.closePath();
+      const skin = x.createLinearGradient(0, -0.8, 0, 0.8);
+      skin.addColorStop(0, F.light);
+      skin.addColorStop(0.55, F.back);
+      skin.addColorStop(1, F.fold);
+      x.fillStyle = skin;
+      x.fill(palm);
+      // Distal tips remain uncovered, with curved, unequal toe shafts.
+      x.strokeStyle = F.fold;
+      x.globalAlpha = 0.85;
+      x.lineWidth = 0.32;
+      for (const [i, [tx, ty]] of tips.entries()) {
+        const [bx, by] = roots[i];
+        x.beginPath();
+        x.moveTo(bx, by);
+        x.quadraticCurveTo(
+          bx + (tx - bx) * 0.55,
+          by + (ty - by) * 0.32,
+          tx,
+          ty,
+        );
+        x.strokeStyle = F.fold;
+        x.lineWidth = 0.4;
+        x.stroke();
+        x.strokeStyle = F.light;
+        x.lineWidth = 0.18;
+        x.stroke();
+      }
+      x.globalAlpha = 1;
+      out.foot = { canvas: c, ppu, px: 2.64 / width, py: 0.5 };
+    }
+    // Tarsus between calf and foot: a short, curved, slightly tapered bridge.
+    {
+      const c = canvas(2.4 * ppu, 3.4 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      // Paths below already use canvas-centered y=1.7; do not offset twice.
+      x.translate(0.3, 0);
+      const p = new Path2D();
+      p.moveTo(0.05, 1.08);
+      p.quadraticCurveTo(0.55, 1.22, 0.98, 1.4);
+      p.quadraticCurveTo(1.42, 1.51, 1.95, 1.35);
+      p.quadraticCurveTo(2.14, 1.7, 1.95, 2.05);
+      p.quadraticCurveTo(1.42, 1.89, 0.98, 2.0);
+      p.quadraticCurveTo(0.55, 2.18, 0.05, 2.32);
+      p.quadraticCurveTo(-0.2, 1.7, 0.05, 1.08);
+      p.closePath();
+      x.fillStyle = F.fold;
+      x.fill(p);
+      x.strokeStyle = "rgba(22,30,14,.32)";
+      x.lineWidth = 0.12;
+      x.stroke(p);
+      x.beginPath();
+      x.moveTo(0.12, 1.7);
+      x.quadraticCurveTo(0.95, 1.58, 1.82, 1.7);
+      x.strokeStyle = "rgba(239,231,198,.48)";
+      x.lineWidth = 0.16;
+      x.stroke();
+      inkWash(x, c.width, c.height, v + 101, ppu);
+      out.tarsus = { canvas: c, ppu, px: 0.3 / 2.4, py: 0.5 };
+    }
+    // Dorsal forelimb: curved upper arm, tapered wrist and a readable palm.
+    // Four unequal free digits keep shallow skin connections at their roots.
+    // The shoulder remains the pivot of this single transform-driven sprite.
+    {
+      const c = canvas(11.5 * ppu, 7 * ppu),
+        x = c.getContext("2d");
+      x.scale(ppu, ppu);
+      x.translate(1.3, 3.5);
+      x.lineCap = "round";
+      const limb = new Path2D();
+      limb.moveTo(-0.3, -1.3);
+      limb.bezierCurveTo(0.8, -1.85, 2.1, -1.5, 3.1, -0.65);
+      limb.bezierCurveTo(4, -0.25, 4.8, -0.55, 5.65, -0.45);
+      limb.lineTo(5.65, 0.6);
+      limb.bezierCurveTo(4.7, 0.7, 3.8, 1.1, 2.9, 1.1);
+      limb.bezierCurveTo(1.9, 1.6, 0.8, 1.5, -0.3, 1.3);
+      limb.quadraticCurveTo(-0.75, 0, -0.3, -1.3);
+      limb.closePath();
+      const shade = x.createLinearGradient(0, -1.5, 0, 1.5);
+      shade.addColorStop(0, F.light);
+      shade.addColorStop(0.55, F.back);
+      shade.addColorStop(1, F.fold);
+      x.fillStyle = shade;
+      x.fill(limb);
+      const palm = new Path2D();
+      palm.moveTo(5.25, -0.45);
+      palm.bezierCurveTo(5.8, -0.85, 6.4, -1.15, 7.05, -1.05);
+      palm.bezierCurveTo(7.5, -0.75, 7.65, -0.25, 7.55, 0.3);
+      palm.bezierCurveTo(7.35, 0.95, 6.95, 1.35, 6.5, 1.15);
+      palm.bezierCurveTo(5.9, 0.95, 5.55, 0.7, 5.25, 0.55);
+      palm.closePath();
+      x.fillStyle = shade;
+      x.fill(palm);
+      // Concave interdigital membranes remain visible beyond the palm.
+      // Free distal tips keep this a four-digit forehand, not a hind fin.
+      const web = new Path2D();
+      web.moveTo(6.45, -0.75);
+      web.lineTo(7.45, -1.3);
+      web.quadraticCurveTo(7.25, -0.65, 8.05, -0.45);
+      web.quadraticCurveTo(7.45, 0.1, 7.95, 0.7);
+      web.quadraticCurveTo(7.2, 0.65, 7.25, 1.55);
+      web.quadraticCurveTo(6.6, 1.1, 6.4, 0.8);
+      web.closePath();
+      x.fillStyle = F.light;
+      x.globalAlpha = 0.82;
+      x.fill(web);
+      x.strokeStyle = F.fold;
+      x.lineWidth = 0.16;
+      x.globalAlpha = 0.45;
+      x.stroke(web);
+      x.globalAlpha = 1;
+      const digits = [
+        [6.65, -0.8, 8.45, -2.05],
+        [6.85, -0.25, 9.45, -0.65],
+        [6.85, 0.45, 9.15, 0.9],
+        [6.5, 0.95, 8.15, 2.2],
+      ];
+      for (const [bx, by, tx, ty] of digits) {
+        x.beginPath();
+        x.moveTo(bx, by);
+        x.quadraticCurveTo((bx + tx) / 2, by + (ty - by) * 0.35, tx, ty);
+        x.strokeStyle = F.fold;
+        x.lineWidth = 0.48;
+        x.stroke();
+        x.strokeStyle = F.back;
+        x.lineWidth = 0.26;
+        x.stroke();
+      }
+      x.beginPath();
+      x.moveTo(0.8, -0.15);
+      x.quadraticCurveTo(2.8, 0.45, 5.6, 0.15);
+      x.strokeStyle = F.light;
+      x.globalAlpha = 0.45;
+      x.lineWidth = 0.3;
+      x.stroke();
+      x.globalAlpha = 1;
+      inkWash(x, c.width, c.height, v + 109, ppu);
+      out.arm = { canvas: c, ppu, px: 1.3 / 11.5, py: 0.5 };
+      // Two fixed sprites: the wrist can fold the hand without thinning
+      // the proximal muscle or shortening the fingers. No texture swapping.
+      const hand = canvas(c.width, c.height);
+      const hx = hand.getContext("2d");
+      hx.drawImage(c, 0, 0);
+      hx.clearRect(0, 0, 6.55 * ppu, c.height);
+      out.hand = {
+        canvas: hand,
+        ppu,
+        px: out.arm.px + (5.25 * ppu) / c.width,
+        py: 0.5,
+      };
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      x.clearRect(6.9 * ppu, 0, c.width, c.height);
+      // Shoulder and digits keep their anchors. A bent forearm reaches an
+      // offset wrist instead of rotating the entire arm to point the hand.
+      const bent = canvas(9 * ppu, 10 * ppu);
+      const bx = bent.getContext("2d");
+      bx.scale(ppu, ppu);
+      bx.translate(1, 5.4);
+      const contour = new Path2D();
+      contour.moveTo(-0.3, -1.3);
+      contour.bezierCurveTo(1, -1.8, 2, -1.55, 2.7, -1.65);
+      contour.bezierCurveTo(3.45, -2, 4.65, -3, 5.5, -3.5);
+      contour.quadraticCurveTo(6, -3.7, 6.1, -2.5);
+      contour.bezierCurveTo(4.6, -1.4, 4, -0.3, 3.3, 0.1);
+      contour.bezierCurveTo(2.7, 1.3, 1, 1.6, -0.3, 1.3);
+      contour.quadraticCurveTo(-0.75, 0, -0.3, -1.3);
+      contour.closePath();
+      const armShade = bx.createLinearGradient(0, -3.5, 0, 1.5);
+      armShade.addColorStop(0, F.light);
+      armShade.addColorStop(0.55, F.back);
+      armShade.addColorStop(1, F.fold);
+      bx.fillStyle = armShade;
+      bx.fill(contour);
+      bx.beginPath();
+      bx.moveTo(0.8, -0.2);
+      bx.quadraticCurveTo(2.8, -0.4, 3.2, -1.1);
+      bx.quadraticCurveTo(4.3, -1.8, 5.7, -2.9);
+      bx.lineCap = "round";
+      bx.strokeStyle = F.light;
+      bx.globalAlpha = 0.45;
+      bx.lineWidth = 0.25;
+      bx.stroke();
+      bx.globalAlpha = 1;
+      inkWash(bx, bent.width, bent.height, v + 109, ppu);
+      out.arm = { canvas: bent, ppu, px: 1 / 9, py: 5.4 / 10 };
+    }
+    return out;
+  }
   function miscSprites() {
     const s = {
       fin: finSprite(4, false),
@@ -1673,6 +2379,10 @@
       const t = crabSprites(v);
       for (const k in t) s[`crab${v}_${k}`] = t[k];
     }
+    for (let v = 0; v < FROGS.length; v++) {
+      const t = frogSprites(v);
+      for (const k in t) s[`frog${v}_${k}`] = t[k];
+    }
     return s;
   }
   root.PondArtXieyi = {
@@ -1683,5 +2393,6 @@
     BUTTERFLY_COUNT: BUTTERFLIES.length,
     DRAGONFLY_COUNT: DRAGONFLIES.length,
     CRAB_COUNT: CRABS.length,
+    FROG_COUNT: FROGS.length,
   };
 })(window);

@@ -41,6 +41,7 @@ export function mountPond(host, config) {
     speed: 1,
     turtles: true,
     crabs: true,
+    frogs: true,
     silverCarp: true,
     butterflies: true,
     names: false,
@@ -265,7 +266,7 @@ export function mountPond(host, config) {
     simulation.events.splice(0);
     scene.setLook(settings.weather, settings.night, dt, settings);
     scene.update(dt, settings);
-    for (const event of scene.events.splice(0)) pondSound.thunder(event);
+    for (const event of scene.events.splice(0)) pondSound.event(event);
     scene.draw(settings);
     renderer.render(time, dt, scene.look);
   }
@@ -338,7 +339,7 @@ export function mountPond(host, config) {
 
   function setConfig(next) {
     if (!next || typeof next !== "object") return;
-    for (const key of ["turtles", "crabs", "butterflies"]) {
+    for (const key of ["turtles", "crabs", "butterflies", "frogs"]) {
       if (typeof next[key] === "boolean") settings[key] = next[key];
     }
     if (

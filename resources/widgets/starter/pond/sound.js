@@ -67,9 +67,11 @@ export function createPondSound(getScene) {
     noteScene() {
       apply();
     },
-    thunder(event) {
-      if (event?.type === "thunder")
-        audio.thunderAfter(event.delay, event.strength);
+    // Scene events, dispatched by type (viewer.js drains scene.events each frame).
+    event(e) {
+      if (e?.type === "thunder") return audio.thunderAfter(e.delay, e.strength);
+      if (e?.type === "frog" && audio.active && audio.context)
+        return audio.frog(audio.context.currentTime + 0.1);
     },
     plop() {
       audio.plop();

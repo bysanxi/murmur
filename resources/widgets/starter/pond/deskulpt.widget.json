@@ -26,6 +26,13 @@
       "group": { "zh-CN": "画面", "en": "Scene" }
     },
     {
+      "key": "frogs",
+      "label": { "zh-CN": "小青蛙", "en": "Frogs" },
+      "type": "bool",
+      "default": true,
+      "group": { "zh-CN": "画面", "en": "Scene" }
+    },
+    {
       "key": "butterflies",
       "label": { "zh-CN": "蝴蝶与蜻蜓", "en": "Butterflies and dragonflies" },
       "type": "bool",

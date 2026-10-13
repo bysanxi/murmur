@@ -26,6 +26,7 @@
     "docs:rs": "cargo +nightly doc-workspace",
     "check:js": "tsc -b",
     "dev:js": "vite dev",
+    "sync:frog:dev": "node scripts/sync-frog-dev.mjs",
     "build:js": "pnpm check:js && vite build",
     "build:packages": "pnpm run --sequential --filter @deskulpt-test/* build"
   },

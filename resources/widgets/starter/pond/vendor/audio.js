@@ -749,10 +749,8 @@
           e.crow += rand(25, 60);
         }
       } else if (night) {
-        if (due("frog", () => rand(1, 5))) {
-          this.frog(e.frog);
-          e.frog += rand(3, 11);
-        }
+        // The frogs you hear are the frogs you see: a croak only plays when
+        // the scene emits its "frog" event (viewer.js -> sound.js).
       } else {
         if (due("bird", () => rand(1, 4))) {
           this.bird(e.bird);
@@ -1028,8 +1026,9 @@
     }
     // A frog: a burst of buzzy pulses through a throat-like resonance, sometimes answered twice.
     frog(t) {
-      const ctx = this.context,
-        f = rand(170, 300),
+      const ctx = this.context;
+      if (!ctx || ctx.state !== "running" || !this.active) return;
+      const f = rand(170, 300),
         rate = rand(18, 28),
         pan = rand(-0.85, 0.85),
         gain = rand(0.05, 0.09);

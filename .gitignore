@@ -25,3 +25,11 @@ npm-debug.log*
 # Generated files
 crates/deskulpt/gen/
 crates/tauri-plugin-deskulpt-*/permissions/
+
+# Local diagnostics output
+frog-diagnostics/
+/frog-inspect.cjs
+/frog-*.png
+/frog-*.gif
+/frog-*.html
+/scripts/frog-*.cjs

@@ -8,28 +8,28 @@
 
 ## 文件
 
-| 文件                        | 职责                                                             |
-| --------------------------- | ---------------------------------------------------------------- |
-| `deskulpt.widget.json`      | 清单。入口是 `index.jsx`。默认尺寸按壁纸填写，层级为 `-1`。      |
-| `index.jsx`                 | React 宿主。管视口、那句文案，以及挂载和卸载。                   |
-| `viewer.js`                 | 观赏用的适配层。建立模拟、驱动帧循环，并在重新挂载时留住上一帧。 |
-| `lines.js`                  | 时段、气氛，以及当前语言下的句子。                               |
-| `vendor/core.js`            | 鱼的身体、转向和 `PondSimulation`。挂到 `window.PondCore`。      |
-| `vendor/art.js`             | 公共的体型公式和雨雪涟漪。挂到 `window.PondArt`。                |
-| `vendor/art-real.js`        | 写实生物。                                                       |
-| `vendor/art-xieyi.js`       | 写意生物。                                                       |
-| `vendor/bed-real.js`        | 写实底图坐标，图片是 `POND_IMAGE_REAL`。                         |
-| `vendor/bed-xieyi.js`       | 写意底图坐标，图片是 `POND_IMAGE_XIEYI`。                        |
-| `vendor/look-real.js`       | 写实的胸鳍色和身体高光。                                         |
-| `vendor/look-xieyi.js`      | 写意的胸鳍色和身体高光。                                         |
-| `vendor/styles.js`          | `window.PondStyles`。宿主按名字切换。                            |
-| `vendor/gl.js`              | WebGL2 渲染器，失败时退回 2D。挂到 `window.PondGL`。             |
-| `vendor/scene.js`           | 把生物、浮萍和天气摆到渲染器上。挂到 `window.PondScene`。        |
-| `vendor/audio.js`           | 合成的水声、天气环境音和乐器。挂到 `window.PondAudio`。          |
-| `sound.js`                  | 把本组件的声音设置交给这套合成，并在闪电之后播放雷声。           |
-| `vendor/pond-data.js`       | 写实池塘照片，JPEG data URL，放在 `window.POND_IMAGE_REAL`。     |
-| `vendor/pond-data-xieyi.js` | 写意池塘照片，放在 `window.POND_IMAGE_XIEYI`。                   |
-| `style-swap.js`             | 先解码新底图、画好贴图，再在一帧里提交切换。                     |
+| 文件                        | 职责                                                                       |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `deskulpt.widget.json`      | 清单。入口是 `index.jsx`。默认尺寸按壁纸填写，层级为 `-1`。                |
+| `index.jsx`                 | React 宿主。管视口、那句文案，以及挂载和卸载。                             |
+| `viewer.js`                 | 观赏用的适配层。建立模拟、驱动帧循环，并在重新挂载时留住上一帧。           |
+| `lines.js`                  | 时段、气氛，以及当前语言下的句子。                                         |
+| `vendor/core.js`            | 鱼的身体、转向和 `PondSimulation`。挂到 `window.PondCore`。                |
+| `vendor/art.js`             | 公共的体型公式和雨雪涟漪。挂到 `window.PondArt`。                          |
+| `vendor/art-real.js`        | 写实生物。                                                                 |
+| `vendor/art-xieyi.js`       | 写意生物。                                                                 |
+| `vendor/bed-real.js`        | 写实底图坐标，图片是 `POND_IMAGE_REAL`。                                   |
+| `vendor/bed-xieyi.js`       | 写意底图坐标，图片是 `POND_IMAGE_XIEYI`。                                  |
+| `vendor/look-real.js`       | 写实的胸鳍色和身体高光。                                                   |
+| `vendor/look-xieyi.js`      | 写意的胸鳍色和身体高光。                                                   |
+| `vendor/styles.js`          | `window.PondStyles`。宿主按名字切换。                                      |
+| `vendor/gl.js`              | WebGL2 渲染器，失败时退回 2D。挂到 `window.PondGL`。                       |
+| `vendor/scene.js`           | 把生物、浮萍和天气摆到渲染器上。挂到 `window.PondScene`。                  |
+| `vendor/audio.js`           | 合成的水声、天气环境音和乐器。挂到 `window.PondAudio`。                    |
+| `sound.js`                  | 把本组件的声音设置交给这套合成，并在闪电、蛙鸣等场景事件之后播放对应声音。 |
+| `vendor/pond-data.js`       | 写实池塘照片，JPEG data URL，放在 `window.POND_IMAGE_REAL`。               |
+| `vendor/pond-data-xieyi.js` | 写意池塘照片，放在 `window.POND_IMAGE_XIEYI`。                             |
+| `style-swap.js`             | 先解码新底图、画好贴图，再在一帧里提交切换。                               |
 
 引擎来自 [fishwallpaper](https://github.com/moli-xia/fishwallpaper)（MIT），
 只保留观赏。投喂、手绘图案、城市天气和鱼的存档都没有接上。声音接上了：选项
@@ -60,7 +60,7 @@ window.POND_IMAGE_REAL = "data:image/jpeg;base64,...";
 两套画法，按"要不要形变"分工：
 
 - **逐像素 `ImageData`**：鱼身、龟壳。纹理要贴合曲面，还要额外输出光照通道。
-- **矢量 `Path2D` 加渐变**：鳍、四肢、翅膀、蟹钳、花瓣。这些部件要独立活动，形状也规则。
+- **矢量 `Path2D` 加渐变**：鳍、四肢、翅膀、蟹钳、蛙腿与喉囊、花瓣。这些部件要独立活动，形状也规则。
 
 鱼的局部坐标定义在 `core.js` 的 `BODY` 里：鼻尖 `+34`、尾尖 `-58`、宽 `96`、半宽 `14`，是俯视图。默认 `ppu` 为 `3.5`，贴图 336×98 px。
 
@@ -79,7 +79,7 @@ window.POND_IMAGE_REAL = "data:image/jpeg;base64,...";
 
 缓存分两级。每个画风自己的 `layerCache` 按 `品种:palette:seed:ppu` 缓存逐像素计算，LRU 上限 90。`viewer.js` 按画风再分一份鱼的贴图缓存，键是 `species:palette:seed`，来回切换不用重画。清单里的 `style` 选 `real`（写实，默认）或 `xieyi`（写意）。
 
-其余生物遵循一条规律：**要动的用矢量拆件，要质感的用逐像素**。龟壳是另一个逐像素件，13 个盾片中心做 Voronoi 接缝，加生长环和圆顶受光；但四肢、头和尾拆成 5 个矢量部件，按划水相位分别旋转。蝴蝶、蜻蜓、蟹同样是拆件的矢量件。
+其余生物遵循一条规律：**要动的用矢量拆件，要质感的用逐像素**。龟壳是另一个逐像素件，13 个盾片中心做 Voronoi 接缝，加生长环和圆顶受光；但四肢、头和尾拆成 5 个矢量部件，按划水相位分别旋转。蝴蝶、蜻蜓、蟹、青蛙同样是拆件的矢量件；青蛙拆成身、喉囊、大腿、小腿、前肢五件。
 
 上游还带着 `tests/` 目录。`core.js` 和 `art.js` 不依赖 DOM，可以用 `node --test` 直接跑，断言里甚至写进了审美判断，比如"吻部圆钝，不是尖的"、"鳞片逐片变化，不能是平的"。
 
@@ -162,7 +162,7 @@ Deskulpt 把 React、Emotion 和组件 API 作为运行时外部依赖提供。�
 
 - 24 条锦鲤，来自 `PondCore.createFish`
 - 一群鲢鱼，来自 `createSilverCarpShoal`
-- 龟、蟹、蝴蝶打开
+- 龟、蟹、青蛙、蝴蝶打开
 - 名字关闭
 
 `prefers-reduced-motion: reduce` 时用 `eco`，否则用 `high`。Eco 把设备像素比锁成 1，目标 30 帧。High 把像素比限制在 2，目标 60 帧。渲染器还有像素上限：eco 为 160 万，high 为 830 万。超过上限就缩小帧缓冲，而不是按 4K 乘像素比分配整张贴图。

@@ -25,7 +25,7 @@ The first launch copies this directory into the live widgets folder (`target/deb
 | `vendor/gl.js`              | WebGL2 renderer, with a 2D fallback. Publishes `window.PondGL`.                                                                   |
 | `vendor/scene.js`           | Places creatures, lilies, and weather on top of the renderer. Publishes `window.PondScene`.                                       |
 | `vendor/audio.js`           | Synthesised water, weather, and the instrument line. Publishes `window.PondAudio`.                                                |
-| `sound.js`                  | Turns this widget's sound settings into that soundscape, and plays thunder after a drawn bolt.                                    |
+| `sound.js`                  | Turns this widget's sound settings into that soundscape, and plays thunder or a frog's croak after the scene calls for them.      |
 | `vendor/pond-data.js`       | The realistic pond photograph as a JPEG data URL on `window.POND_IMAGE_REAL`.                                                     |
 | `vendor/pond-data-xieyi.js` | The ink pond photograph on `window.POND_IMAGE_XIEYI`.                                                                             |
 | `style-swap.js`             | Decodes the next bed and repaints sprites before one frame commits the swap.                                                      |
@@ -60,7 +60,7 @@ Everything else is generated at runtime:
 Two techniques, chosen by whether the result has to deform:
 
 - **Per-pixel `ImageData`**: fish bodies and turtle shells. The texture has to follow a curved surface, and it must emit extra lighting channels.
-- **Vector `Path2D` with gradients**: fins, limbs, wings, crab claws, petals. These parts move independently, and their shapes are regular.
+- **Vector `Path2D` with gradients**: fins, limbs, wings, crab claws, frog legs, throats and hands, petals. These parts move independently, and their shapes are regular.
 
 A fish is defined in local coordinates by `BODY` in `core.js`: nose at `+34`, tail tip at `-58`, width `96`, half width `14`, seen from above. At the default `ppu` of `3.5` the sprite is 336×98 px.
 
@@ -79,7 +79,7 @@ The output is four channels: `albedo` carries colour and alpha, `shade` static s
 
 Caching happens at two levels. Each style keeps its own `layerCache` for the per-pixel work, keyed by `variety:palette:seed:ppu`, with an LRU of 90. `viewer.js` keeps a separate fish-canvas cache per style, keyed by `species:palette:seed`, so switching back does not repaint. The manifest option `style` chooses `real` (写实, the default) or `xieyi` (写意).
 
-The remaining creatures follow one rule: **things that move are vector parts, things that need texture are painted per pixel**. The shell is another per-pixel piece — 13 scute centres form Voronoi seams, with growth rings and a domed light falloff — but limbs, head, and tail are five vector parts rotated by swim phase. Butterflies, dragonflies, and crabs are vector parts too.
+The remaining creatures follow one rule: **things that move are vector parts, things that need texture are painted per pixel**. The shell is another per-pixel piece — 13 scute centres form Voronoi seams, with growth rings and a domed light falloff — but limbs, head, and tail are five vector parts rotated by swim phase. Butterflies, dragonflies, and crabs are vector parts too — a frog is five of them: body, throat, thigh, shin, and foreleg.
 
 Upstream also ships a `tests/` directory. `core.js` and `art.js` have no DOM dependency and run under `node --test`, and the assertions encode aesthetic judgements, such as a blunt round snout rather than a point, and scales that vary scale by scale instead of staying flat.
 
@@ -162,7 +162,7 @@ Mounting uses `useLayoutEffect`, not `useEffect`, so a retained frame can be att
 
 - 24 koi from `PondCore.createFish`
 - one silver-carp shoal from `createSilverCarpShoal`
-- turtles, crabs, and butterflies turned on
+- turtles, crabs, frogs, and butterflies turned on
 - names turned off
 
 `prefers-reduced-motion: reduce` selects the `eco` quality. Otherwise the quality is `high`. Eco locks the device pixel ratio to 1 and aims at 30 fps. High caps the pixel ratio at 2 and aims at 60 fps. The renderer also caps the framebuffer: 1.6 million pixels in eco, 8.3 million in high. Above the cap it scales the buffer down instead of allocating a full 4K×DPR surface.

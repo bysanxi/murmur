@@ -1386,6 +1386,54 @@ void main(){
         b.ix.set([n, n + 1, n + 2, n, n + 2, n + 3], b.ni);
         b.ni += 6;
       },
+      // A short textured skin ribbon following a cubic centerline. Used for
+      // articulated joints where independent sprite quads otherwise expose a seam.
+      ribbon(layer, def, points, widths, color = WHITE, fog, samples = 10) {
+        if (!def || points.length !== 4 || widths.length !== 2) return;
+        const b = batches[layer];
+        const n = Math.max(2, samples | 0);
+        b.ensure((n + 1) * 2, n * 6);
+        const first = b.nv;
+        const point = (t) => {
+          const q = 1 - t;
+          return [
+            q * q * q * points[0][0] +
+              3 * q * q * t * points[1][0] +
+              3 * q * t * t * points[2][0] +
+              t * t * t * points[3][0],
+            q * q * q * points[0][1] +
+              3 * q * q * t * points[1][1] +
+              3 * q * t * t * points[2][1] +
+              t * t * t * points[3][1],
+          ];
+        };
+        // Stay inside the source sprite to avoid sampling atlas neighbors at
+        // mipmapped edges. Longitudinal texture variation remains visible.
+        const u0 = def.u0 + (def.u1 - def.u0) * 0.24;
+        const u1 = def.u0 + (def.u1 - def.u0) * 0.76;
+        const v0 = def.v0 + (def.v1 - def.v0) * 0.08;
+        const v1 = def.v1 - (def.v1 - def.v0) * 0.08;
+        for (let i = 0; i <= n; i++) {
+          const t = i / n,
+            p = point(t),
+            before = point(Math.max(0, t - 1 / n)),
+            after = point(Math.min(1, t + 1 / n)),
+            dx = after[0] - before[0],
+            dy = after[1] - before[1],
+            len = Math.hypot(dx, dy) || 1,
+            half = widths[0] + (widths[1] - widths[0]) * t,
+            nx = -dy / len,
+            ny = dx / len,
+            u = u0 + (u1 - u0) * t;
+          b.vert(p[0] + nx * half, p[1] + ny * half, u, v0, color, fog);
+          b.vert(p[0] - nx * half, p[1] - ny * half, u, v1, color, fog);
+        }
+        for (let i = 0; i < n; i++) {
+          const a = first + i * 2;
+          b.ix.set([a, a + 1, a + 2, a + 1, a + 3, a + 2], b.ni);
+          b.ni += 6;
+        }
+      },
       // Koi body strip along the posed spine; pose from PondCore.fishPose, k scales about (cx, cy) for depth.
       // light: { widths: body half-width / strip half-height per spine point, metal, gloss } for relighting.
       fish(
