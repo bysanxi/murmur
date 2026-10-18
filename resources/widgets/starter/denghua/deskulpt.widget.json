@@ -1,0 +1,107 @@
+{
+  "name": "灯花",
+  "version": "0.1.0",
+  "authors": ["hiudong"],
+  "license": "MIT",
+  "description": "A line that shows up on its own.",
+  "entry": "index.jsx",
+  "width": 560,
+  "height": 180,
+  "options": [
+    {
+      "key": "lineEvery",
+      "label": { "zh-CN": "句间隔（秒）", "en": "Line interval (seconds)" },
+      "type": "number",
+      "default": 8,
+      "min": 2,
+      "max": 120,
+      "step": 1,
+      "group": { "zh-CN": "灯花", "en": "Lamp" }
+    },
+    {
+      "key": "every",
+      "label": { "zh-CN": "组间隔（秒）", "en": "Group interval (seconds)" },
+      "type": "number",
+      "default": 60,
+      "min": 10,
+      "max": 600,
+      "step": 10,
+      "group": { "zh-CN": "灯花", "en": "Lamp" }
+    },
+    {
+      "key": "motion",
+      "label": { "zh-CN": "特效", "en": "Motion" },
+      "type": "select",
+      "default": "fade",
+      "group": { "zh-CN": "灯花", "en": "Lamp" },
+      "options": [
+        { "value": "still", "label": { "zh-CN": "直接", "en": "Still" } },
+        { "value": "fade", "label": { "zh-CN": "淡入淡出", "en": "Fade" } },
+        { "value": "rise", "label": { "zh-CN": "浮沉", "en": "Rise" } },
+        { "value": "bloom", "label": { "zh-CN": "绽放", "en": "Bloom" } },
+        { "value": "wind", "label": { "zh-CN": "吹散", "en": "Wind" } }
+      ]
+    },
+    {
+      "key": "flow",
+      "label": { "zh-CN": "排版", "en": "Flow" },
+      "type": "select",
+      "default": "horizontal",
+      "group": { "zh-CN": "灯花", "en": "Lamp" },
+      "options": [
+        {
+          "value": "horizontal",
+          "label": { "zh-CN": "横排", "en": "Horizontal" }
+        },
+        { "value": "vertical", "label": { "zh-CN": "竖排", "en": "Vertical" } }
+      ]
+    },
+    {
+      "key": "align",
+      "label": { "zh-CN": "对齐方式", "en": "Align" },
+      "type": "select",
+      "default": "center",
+      "group": { "zh-CN": "灯花", "en": "Lamp" },
+      "options": [
+        { "value": "left", "label": { "zh-CN": "居左", "en": "Left" } },
+        { "value": "center", "label": { "zh-CN": "居中", "en": "Center" } },
+        { "value": "right", "label": { "zh-CN": "居右", "en": "Right" } }
+      ]
+    },
+    {
+      "key": "font",
+      "label": { "zh-CN": "字体", "en": "Font" },
+      "type": "font",
+      "default": "kai",
+      "group": { "zh-CN": "灯花", "en": "Lamp" },
+      "options": [
+        { "value": "sans", "label": { "zh-CN": "黑体", "en": "Sans" } },
+        { "value": "kai", "label": { "zh-CN": "楷体", "en": "Kai" } },
+        { "value": "song", "label": { "zh-CN": "宋体", "en": "Song" } }
+      ]
+    },
+    {
+      "key": "size",
+      "label": { "zh-CN": "字号", "en": "Size" },
+      "type": "number",
+      "default": 32,
+      "min": 18,
+      "max": 72,
+      "step": 1,
+      "group": { "zh-CN": "灯花", "en": "Lamp" }
+    },
+    {
+      "key": "color",
+      "label": { "zh-CN": "颜色", "en": "Color" },
+      "type": "select",
+      "default": "ink",
+      "group": { "zh-CN": "灯花", "en": "Lamp" },
+      "options": [
+        { "value": "ink", "label": { "zh-CN": "墨色", "en": "Ink" } },
+        { "value": "cream", "label": { "zh-CN": "米白", "en": "Cream" } },
+        { "value": "moon", "label": { "zh-CN": "月白", "en": "Moon" } },
+        { "value": "gold", "label": { "zh-CN": "暖金", "en": "Gold" } }
+      ]
+    }
+  ]
+}

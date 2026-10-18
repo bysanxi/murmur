@@ -380,7 +380,7 @@ impl<R: Runtime> WidgetsManager<R> {
         let resource_dir = self.app_handle.path().resource_dir()?;
 
         let mut has_error = false;
-        for (widget_id, widget) in [("@murmur.pond", "pond")] {
+        for (widget_id, widget) in [("@murmur.pond", "pond"), ("@murmur.denghua", "denghua")] {
             let src = resource_dir
                 .join("resources")
                 .join("widgets")
