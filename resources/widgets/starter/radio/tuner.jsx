@@ -1,14 +1,14 @@
 // The tuner under the globe: the longitude ruler of stations, and the
-// three controls beneath it — slide one station west, play or pause, and
-// a random pick from the whole catalog.
+// three controls beneath it — west, play or pause, and a random pick.
+// A wide panel drops the ruler and left-aligns that same row.
 
-import { useMemo } from "@deskulpt-test/react";
+import { useEffect, useMemo, useRef, useState } from "@deskulpt-test/react";
 import { Flex } from "@deskulpt-test/ui";
 import { PauseIcon, PlayIcon, ShuffleIcon, SkipBackIcon } from "./icons.jsx";
 import { Ruler } from "./ruler.jsx";
 
-// The three controls are bare icons, one per equal third of the row, so
-// the gap between them follows the panel width and always reads even.
+const WIDE_AT = 520;
+
 const ICON_BTN = {
   display: "flex",
   alignItems: "center",
@@ -22,6 +22,12 @@ const ICON_BTN = {
   cursor: "pointer",
 };
 
+const WIDE_BTN = {
+  ...ICON_BTN,
+  flex: "0 0 auto",
+  width: 44,
+};
+
 export function Tuner({
   station,
   upcoming,
@@ -30,9 +36,21 @@ export function Tuner({
   strings,
   onToggle,
   onPick,
+  keepRuler = false,
 }) {
-  // Every located station the catalog knows, plus the ones already in
-  // flight, ordered west to east like a map.
+  const hostRef = useRef(null);
+  const [wide, setWide] = useState(false);
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const sync = () => setWide(el.clientWidth >= WIDE_AT);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const stations = useMemo(() => {
     const seen = new Set();
     const list = [];
@@ -57,36 +75,49 @@ export function Tuner({
     }
   };
 
+  const stripWide = wide && !keepRuler;
+  const btn = stripWide ? WIDE_BTN : ICON_BTN;
+  const controls = (
+    <Flex
+      align="center"
+      width={stripWide ? undefined : "100%"}
+      pt={stripWide ? "3" : "1"}
+      style={stripWide ? { gap: 16 } : undefined}
+    >
+      <button
+        type="button"
+        onClick={() => west && onPick(west)}
+        disabled={!west}
+        aria-label={strings.left}
+        style={{ ...btn, opacity: west ? 1 : 0.35 }}
+      >
+        <SkipBackIcon size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={live ? strings.pause : strings.play}
+        style={btn}
+      >
+        {live ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+      </button>
+      <button
+        type="button"
+        onClick={pickRandom}
+        aria-label={strings.random}
+        style={btn}
+      >
+        <ShuffleIcon />
+      </button>
+    </Flex>
+  );
+
   return (
-    <>
-      <Ruler stations={stations} cur={cur} onPick={onPick} />
-      <Flex align="center" width="100%" pt="1">
-        <button
-          type="button"
-          onClick={() => west && onPick(west)}
-          disabled={!west}
-          aria-label={strings.left}
-          style={{ ...ICON_BTN, opacity: west ? 1 : 0.35 }}
-        >
-          <SkipBackIcon size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={live ? strings.pause : strings.play}
-          style={ICON_BTN}
-        >
-          {live ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
-        </button>
-        <button
-          type="button"
-          onClick={pickRandom}
-          aria-label={strings.random}
-          style={ICON_BTN}
-        >
-          <ShuffleIcon />
-        </button>
-      </Flex>
-    </>
+    <div ref={hostRef} style={{ width: "100%" }}>
+      {(!stripWide || keepRuler) && (
+        <Ruler stations={stations} cur={cur} onPick={onPick} />
+      )}
+      {controls}
+    </div>
   );
 }

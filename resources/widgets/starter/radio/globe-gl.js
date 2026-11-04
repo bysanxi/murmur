@@ -17,8 +17,10 @@ uniform mat3 uRot;
 uniform float uPixelRatio;
 uniform float uTime;
 uniform float uEye;
+uniform float uPinScale;
 uniform float uLevel;
 uniform float uBass;
+uniform float uFanMix;
 out float vFacing;
 out float vKind;
 out float vPulse;
@@ -36,24 +38,26 @@ void main() {
   vSeed = fract(sin(dot(aPos.xy + aPos.z, vec2(12.9898, 78.233))) * 43758.5453);
   float depth = max(uEye - rotated.z, 0.1);
   float atten = 6.0 / depth;
-  float far = smoothstep(2.5, 5.6, uEye);
-  float size = 2.35 * uPixelRatio * atten;
+  float size = 1.2 * uPixelRatio * atten;
   if (aKind > 0.5 && aKind < 1.5) {
     size = min((9.0 + uLevel * 10.0) * uPixelRatio, 46.0 * uPixelRatio) *
       (0.97 + 0.03 * sin(uTime * 2.4));
   } else if (aKind > 1.5) {
-    float breath = sin(uTime * 2.4);
+    // Sprite stays a bit larger than the core so the halo can still read.
+    float zoomOut = smoothstep(3.55, 5.2, uEye);
+    float pin = mix(0.95 + 1.25 * aDen, 0.7 + 0.85 * aDen, zoomOut);
+    float falloff = mix(atten, atten * 0.62, zoomOut);
     size = clamp(
-      (1.1 + 2.0 * aDen) * uPixelRatio * atten *
-        (0.96 + 0.04 * breath) *
-        (1.0 + uLevel * 0.7) *
-        mix(1.0, 0.36, far),
-      1.0,
+      pin * uPixelRatio * falloff * uPinScale * 1.08 *
+        (1.0 + uLevel * 0.7),
+      1.9 * uPixelRatio,
       46.0 * uPixelRatio
     );
-    vPulse = 0.92 + 0.08 * breath;
+    // Carpet pins shrink while the city fan is open so they don't compete.
+    if (aKind < 2.5) size *= mix(1.0, 0.7, uFanMix);
+    vPulse = 1.0;
   }
-  gl_PointSize = max(size, 1.0);
+  gl_PointSize = max(size, 1.9 * uPixelRatio);
 }`;
 
 export const FRAG = `#version 300 es
@@ -72,6 +76,7 @@ uniform float uLevel;
 uniform float uBass;
 uniform float uTime;
 uniform float uEye;
+uniform float uFanMix;
 out vec4 frag;
 void main() {
   vec2 pc = gl_PointCoord - vec2(0.5);
@@ -82,11 +87,19 @@ void main() {
   a *= a;
   if (vKind > 1.5) {
     if (r > 0.5 || facing < 0.02) discard;
-    float phase = 0.92 + 0.08 * sin(uTime * 2.6 + vSeed * 6.28318);
-    float gain = (0.16 + 0.55 * vDen) * facing * vPulse * phase;
+    float core = exp(-r * r * 42.0);
+    float halo = exp(-r * r * 7.5);
+    float lamp = core * 1.25 + halo * 0.38;
+    float twinkle =
+      0.78 +
+      0.16 * sin(uTime * (0.55 + vSeed * 1.4) + vSeed * 6.28318) +
+      0.08 * sin(uTime * (1.15 + vSeed * 0.7) + vSeed * 17.2);
+    float gain = (0.14 + 0.58 * vDen) * facing * twinkle;
     gain *= 1.0 + min(uLevel, 1.0);
-    gain *= mix(1.0, 0.55, smoothstep(2.5, 5.6, uEye));
-    frag = vec4(vColor * gain * a, 1.0);
+    gain *= mix(1.0, 0.78, smoothstep(3.8, 5.4, uEye));
+    if (vKind < 2.5) gain *= mix(1.0, 0.12, uFanMix);
+    vec3 tint = mix(vColor, vec3(1.0, 0.93, 0.78), core * 0.55);
+    frag = vec4(tint * gain * lamp, 1.0);
     return;
   }
   if (vKind > 0.5) {
@@ -108,6 +121,7 @@ void main() {
   if (circle < 0.01) discard;
   float limb = smoothstep(0.48, 0.02, vFacing);
   float land = facing * mix(1.0, 0.45, limb * (1.0 - uRimBoost));
+  land *= mix(1.0, 0.48, uFanMix);
   float rim = 1.0 + uRimBoost * 1.8 * limb;
   frag = vec4(uColor * land * rim, circle * land);
 }`;
@@ -159,7 +173,7 @@ export function rotation(yaw, pitch, out) {
 
 const NEAR = 0.1;
 const FAR = 10;
-const FOV = (38 * Math.PI) / 180;
+export const FOV = (38 * Math.PI) / 180;
 
 export function makeProjection(aspect, out) {
   const f = 1 / Math.tan(FOV / 2);

@@ -36,20 +36,22 @@ export function landPositions() {
       (-90 + ((latIndex + 0.5) * 180) / LAT_BANDS) * (Math.PI / 180);
     const rowRadius = Math.cos(latitude);
     const y = Math.sin(latitude);
-    // Equal arc spacing: a fixed lon count packs into a shrinking parallel
-    // near the poles and reads as bright rings. Stride grows as cos(lat)
-    // falls so neighbours stay about as far apart as they are at the equator.
-    const stride = Math.max(
+    // Equal-area parallels: count scales with cos(lat) so arc spacing stays
+    // near the equatorial step. Integer stride on the source grid stays 1
+    // until ~48°, which packs mid-latitudes and lights up the poles.
+    const nLon = Math.max(
       1,
-      Math.round(1 / Math.max(Math.abs(rowRadius), 1 / LON_BANDS)),
+      Math.round(LON_BANDS * Math.max(Math.abs(rowRadius), 1 / LON_BANDS)),
     );
-    const rowOffset = latIndex % 2 === 0 ? 0.5 : 1;
-    for (let lonIndex = 0; lonIndex < LON_BANDS; lonIndex += stride) {
+    const rowOffset = latIndex % 2 === 0 ? 0 : 0.5;
+    for (let i = 0; i < nLon; i += 1) {
+      const lonIndex =
+        Math.floor(((i + rowOffset) / nLon) * LON_BANDS) % LON_BANDS;
       const pointIndex = latIndex * LON_BANDS + lonIndex;
       if (((bytes[pointIndex >> 3] ?? 0) & (1 << (pointIndex & 7))) === 0) {
         continue;
       }
-      let longitude = -180 + ((lonIndex + rowOffset) * 360) / LON_BANDS;
+      let longitude = -180 + ((i + rowOffset) * 360) / nLon;
       if (longitude >= 180) longitude -= 360;
       const radians = longitude * (Math.PI / 180);
       positions.push(

@@ -5,7 +5,7 @@
 // camera onto its region under a scope reticle, and dragging takes over.
 
 import { landPositions } from "./land-data.js";
-import { FRAG, VERT, link, makeProjection, rotation } from "./globe-gl.js";
+import { FOV, FRAG, VERT, link, makeProjection, rotation } from "./globe-gl.js";
 import { createBloom } from "./bloom.js";
 import { createPins } from "./pins.js";
 import { createReticle } from "./reticle.js";
@@ -128,6 +128,7 @@ export function createGlobe(host) {
   const uProj = uniform("uProj");
   const uRot = uniform("uRot");
   const uPixelRatio = uniform("uPixelRatio");
+  const uPinScale = uniform("uPinScale");
   const uTime = uniform("uTime");
   const uEye = uniform("uEye");
   const uColor = uniform("uColor");
@@ -136,6 +137,7 @@ export function createGlobe(host) {
   const uRimBoost = uniform("uRimBoost");
   const uLevel = uniform("uLevel");
   const uBass = uniform("uBass");
+  const uFanMix = uniform("uFanMix");
 
   const proj = new Float32Array(16);
   const rot = new Float32Array(9);
@@ -342,6 +344,7 @@ export function createGlobe(host) {
       meta: label.meta,
       progress: aimProgress,
       hot: label.hot ?? close,
+      named: Boolean(label.named),
     });
     reticle.floats(
       pins.floatLabels(
@@ -411,8 +414,6 @@ export function createGlobe(host) {
       eye,
       yaw,
       pitch,
-      settled: !dragging && aimIdle > 0.35,
-      hold: false,
     });
     // Keep the aim sun on the fan slot when the city is spread.
     const sun = pins.sunPos();
@@ -429,6 +430,11 @@ export function createGlobe(host) {
     gl.uniformMatrix4fv(uProj, false, proj);
     gl.uniformMatrix3fv(uRot, false, rotation(yaw, pitch, rot));
     gl.uniform1f(uPixelRatio, pixelRatio);
+    // RoamDial is fullscreen (~500px globe). Widget globes are much
+    // smaller, so a 2px spark becomes a blob. Scale pins to globe pixels.
+    const globePx =
+      (0.5 * Math.min(canvas.width, canvas.height)) / (Math.tan(FOV / 2) * eye);
+    gl.uniform1f(uPinScale, Math.max(0.55, Math.min(1.25, globePx / 360)));
     gl.uniform1f(uTime, now / 1000);
     gl.uniform1f(uEye, eye);
     // roamdial land ink — dark teal-grey; bloom lifts the coasts.
@@ -436,6 +442,7 @@ export function createGlobe(host) {
     gl.uniform3f(uStationColor, 1.0, 0.74, 0.45);
     gl.uniform1f(uHasStation, stationPos ? 1 : 0);
     gl.uniform1f(uRimBoost, rimBoost ? 1 : 0);
+    gl.uniform1f(uFanMix, pins.spreadMix);
     const audio = levelProvider?.() ?? { level: 0, bass: 0 };
     gl.uniform1f(uLevel, audio.level || 0);
     gl.uniform1f(uBass, audio.bass || 0);

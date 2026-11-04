@@ -4,14 +4,18 @@
 
 const DEG = Math.PI / 180;
 // RoamDial opens below b/gI ≈ 3.9/1.6 and closes above 4.3/1.6.
-export const RING_OPEN_EYE = 2.45;
-export const RING_CLOSE_EYE = 2.7;
-// Roamdial's cone is 0.75°; we open a touch wider so a paved city patch
-// still counts as one cluster under the sight.
-const RING_CONE = 2.0 * DEG;
-const RING_STACK = 0.8 * DEG; // pull paved cell-mates into the fan too
+// Open a hair earlier so a dense metro qualifies before the camera
+// is sitting on the surface.
+export const RING_OPEN_EYE = 2.55;
+export const RING_CLOSE_EYE = 2.85;
 const RING_MIN = 4;
 export const RING_MAX = 700;
+// Search net at the open threshold (≈290 km). Tightens toward a city
+// as the camera dives in. RoamDial's 0.75° cone assumes ~35k precise
+// coords; our catalog is smaller and many pins share a province cell.
+const CONE_FAR = 2.6 * DEG;
+const CONE_NEAR = 0.95 * DEG;
+const CITY_MIN = 1.05 * DEG;
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 const EASE_SPEED = 4.5;
 const SURFACE = 1.012; // lift the fan slightly off the globe
@@ -39,54 +43,54 @@ export function viewCenter(yaw, pitch, out = new Float32Array(3)) {
 /// World-unit spiral spacing — roamdial: 0.0105 * max(0.6, (b − gI) / 1.3)
 /// on a 1.6-radius globe; scaled to our unit sphere.
 function spacing(eye) {
-  // First open happens near RING_OPEN_EYE. Later cities are often planned
-  // closer in, which used to shrink the pitch. Hold the open-scale spacing
-  // so a pan-replanned fan matches the first.
   const at = Math.max(eye, RING_OPEN_EYE);
-  return (0.0078 / 1.6) * Math.max(0.7, (at - 1) / 1.15);
+  return (0.0105 / 1.6) * Math.max(0.6, (at - 1) / 1.3);
 }
 
-/// Build a ring plan for stations near the sight, or null when too sparse.
-export function planRing(homes, count, center, eye) {
-  if (eye > RING_OPEN_EYE) return null;
-  const cosCone = Math.cos(RING_CONE);
-  const cosStack = Math.cos(RING_STACK);
+function searchCone(eye) {
+  const t = Math.max(0, Math.min(1, (RING_OPEN_EYE - eye) / 1.25));
+  return CONE_FAR + (CONE_NEAR - CONE_FAR) * t;
+}
+
+/// Stations whose homes sit in a city-sized clump under the sight.
+function gatherClump(homes, count, center, eye) {
+  const cosCone = Math.cos(searchCone(eye));
   const hits = [];
-  const seen = new Uint8Array(count);
   for (let i = 0; i < count; i += 1) {
     const x = homes[i * 3];
     const y = homes[i * 3 + 1];
     const z = homes[i * 3 + 2];
     const dot = x * center[0] + y * center[1] + z * center[2];
-    if (dot > cosCone) {
-      hits.push({ i, dot });
-      seen[i] = 1;
-    }
+    if (dot > cosCone) hits.push({ i, dot, x, y, z });
   }
   if (hits.length < RING_MIN) return null;
-  // Any pin stacked on a hit's home must leave with the fan — otherwise the
-  // original city blob stays lit while the spiral opens beside it.
-  for (let i = 0; i < count; i += 1) {
-    if (seen[i]) continue;
-    const x = homes[i * 3];
-    const y = homes[i * 3 + 1];
-    const z = homes[i * 3 + 2];
-    for (let h = 0; h < hits.length; h += 1) {
-      const j = hits[h].i;
-      const dot =
-        x * homes[j * 3] + y * homes[j * 3 + 1] + z * homes[j * 3 + 2];
-      if (dot > cosStack) {
-        hits.push({
-          i,
-          dot: x * center[0] + y * center[1] + z * center[2],
-        });
-        seen[i] = 1;
-        break;
+  hits.sort((a, b) => b.dot - a.dot);
+
+  const cityCos = Math.cos(Math.max(CITY_MIN, searchCone(eye) * 0.5));
+  let best = null;
+  const seeds = Math.min(hits.length, 28);
+  for (let s = 0; s < seeds; s += 1) {
+    const seed = hits[s];
+    const group = [];
+    for (const h of hits) {
+      if (h.x * seed.x + h.y * seed.y + h.z * seed.z > cityCos) {
+        group.push(h);
       }
     }
+    if (!best || group.length > best.length) best = group;
+    if (best.length >= RING_MAX) break;
   }
-  hits.sort((a, b) => b.dot - a.dot);
-  if (hits.length > RING_MAX) hits.length = RING_MAX;
+  if (!best || best.length < RING_MIN) return null;
+  best.sort((a, b) => b.dot - a.dot);
+  if (best.length > RING_MAX) best.length = RING_MAX;
+  return best;
+}
+
+/// Build a ring plan for stations near the sight, or null when too sparse.
+export function planRing(homes, count, center, eye) {
+  if (eye > RING_OPEN_EYE) return null;
+  const hits = gatherClump(homes, count, center, eye);
+  if (!hits) return null;
 
   const ax = center[0];
   const ay = center[1];
@@ -130,7 +134,11 @@ export function planRing(homes, count, center, eye) {
     targets[t * 3 + 1] = originY + (sy * cos + cy * sin) * rad;
     targets[t * 3 + 2] = originZ + (sz * cos + cz * sin) * rad;
   }
-  const halfAngle = (step * Math.sqrt(hits.length)) / 1;
+  const farthest = hits.at(-1).dot;
+  const halfAngle = Math.max(
+    step * Math.sqrt(hits.length),
+    Math.acos(Math.min(1, Math.max(-1, farthest))),
+  );
   return {
     indices,
     targets,

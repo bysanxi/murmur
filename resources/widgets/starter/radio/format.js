@@ -13,7 +13,7 @@ export const STRINGS = {
     next: "下一台",
     left: "向左换台",
     random: "随机选台",
-    locked: "锁定",
+    locked: "已锁定",
     nearest: "附近 · {d} px",
     nearby: "{n} stations nearby",
     caching: "正在缓存目录…",
@@ -152,7 +152,7 @@ export function lockMetaOf(station, strings) {
   const parts = [];
   const tag = station?.tags?.[0];
   if (tag) parts.push(tag);
-  if (station?.bitrate > 0) parts.push(`${station.bitrate} kbps`);
+  if (station?.bitrate > 0) parts.push(`${station.bitrate} KBPS`);
   const rest = parts.join(" · ");
   return rest ? `${strings.locked} · ${rest}` : strings.locked;
 }

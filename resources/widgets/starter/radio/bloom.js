@@ -194,11 +194,11 @@ export function createBloom(gl) {
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, scene.tex);
       gl.uniform1i(uExtractScene, 0);
-      gl.uniform1f(uExtractTh, 0.2);
+      gl.uniform1f(uExtractTh, 0.16);
       drawQuad(extract);
 
-      // Two separable blur iterations at half-res (~UnrealBloom radius 0.55).
-      for (let i = 0; i < 2; i += 1) {
+      // Extra passes spread a lamp halo the way UnrealBloom's mip chain does.
+      for (let i = 0; i < 4; i += 1) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, ping.fbo);
         gl.useProgram(blur);
         gl.bindTexture(gl.TEXTURE_2D, bright.tex);
@@ -221,7 +221,7 @@ export function createBloom(gl) {
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, bright.tex);
       gl.uniform1i(uCompBloom, 1);
-      gl.uniform1f(uCompStr, 0.45);
+      gl.uniform1f(uCompStr, 0.58);
       gl.uniform1f(uCompTime, time);
       gl.uniform2f(uCompRes, width, height);
       drawQuad(composite);

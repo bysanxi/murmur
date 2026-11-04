@@ -34,14 +34,34 @@ export function CompactView({
       onPointerEnter={card ? () => setHover(true) : undefined}
       onPointerLeave={() => setHover(false)}
       style={{
+        position: "relative",
         borderRadius: card ? 12 : 0,
-        background: card ? "var(--color-panel-solid)" : "transparent",
+        background: "transparent",
         border: card ? "1px solid var(--gray-a5)" : "none",
         pointerEvents: card ? "auto" : "none",
         overflow: "hidden",
       }}
     >
-      <Flex align="center" justify="between" gap="2">
+      {card && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+            borderRadius: 12,
+            background: "var(--color-panel-solid)",
+            opacity: "var(--nfr-widget-bg-alpha, 1)",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+      <Flex
+        align="center"
+        justify="between"
+        gap="2"
+        style={{ position: "relative", zIndex: 1 }}
+      >
         <Text size="3" weight="medium" style={ELLIPSIS}>
           {station?.name || statusLine}
         </Text>
@@ -88,11 +108,19 @@ export function CompactView({
         )}
       </Flex>
       {cityLine && (
-        <Text size="1" color="gray" style={ELLIPSIS}>
+        <Text
+          size="1"
+          color="gray"
+          style={{ ...ELLIPSIS, position: "relative", zIndex: 1 }}
+        >
           {cityLine}
         </Text>
       )}
-      <Text size="1" color="gray" style={ELLIPSIS}>
+      <Text
+        size="1"
+        color="gray"
+        style={{ ...ELLIPSIS, position: "relative", zIndex: 1 }}
+      >
         {detail || statusLine}
       </Text>
     </Flex>

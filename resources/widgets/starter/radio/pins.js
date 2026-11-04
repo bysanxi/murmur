@@ -68,6 +68,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
   let items = [];
   let count = 0;
   let fanCount = 0;
+  let spreadMix = 0;
   let station = null;
   let stationHome = null;
   let stationUuid = null;
@@ -111,17 +112,19 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
     station[2] = stationHome[2];
   }
 
-  /// Homes stay put as a dim carpet; a second copy of the cone rides the spiral.
+  /// Carpet stays at true homes. Fanned stations fade off the stack and
+  /// a second copy rides the spiral, the way roamdial mixes position→aRing.
   function applySpread(mix) {
+    spreadMix = mix;
     pos.set(home.subarray(0, count * 3));
-    const dim = 1 - 0.84 * mix;
-    for (let i = 0; i < count; i += 1) dens[i] = homeDens[i] * dim;
+    for (let i = 0; i < count; i += 1) dens[i] = homeDens[i];
     const plan = ring.plan;
     fanCount = 0;
     if (plan && mix > 0.001) {
       fanCount = plan.indices.length;
       for (let t = 0; t < fanCount; t += 1) {
         const i = plan.indices[t];
+        dens[i] = homeDens[i] * (1 - mix);
         const dst = count + t;
         const o = i * 3;
         const r = t * 3;
@@ -136,7 +139,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
         colors[dst * 3 + 2] = tint[2];
         const rad = Math.sqrt((t + 0.55) / (fanCount + 0.55));
         dens[dst] = Math.max(0.4, 1 - rad * 0.55);
-        kinds[dst] = 2;
+        kinds[dst] = 3;
       }
     }
     syncSun(mix);
@@ -154,6 +157,9 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
     get fanCount() {
       return fanCount;
     },
+    get spreadMix() {
+      return spreadMix;
+    },
     /// Pin every station the list carries; the on-air one rides along.
     /// Preserves an open fan across rebuilds (locking a pin used to reset it).
     setMarkers(list) {
@@ -168,7 +174,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
         }
         accepted.push(item);
       }
-      // Pave co-located stacks into a city carpet; dens dims the crowd.
+      // True lat/lon carpet; dens dims crowded cells into a heatmap.
       const packed = packHomes(accepted, home);
       count = accepted.length;
       for (let i = 0; i < count; i += 1) {
@@ -190,6 +196,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
       } else {
         ring.reset();
         fanCount = 0;
+        spreadMix = 0;
         upload();
       }
     },
@@ -301,7 +308,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
       return Boolean(stationUuid && item.uuid === stationUuid && plan);
     },
     /// Open / ease / close the city fan from the current camera.
-    tickSpread(dt, { eye, yaw, pitch, settled, hold }) {
+    tickSpread(dt, { eye, yaw, pitch }) {
       const was = ring.amount;
       viewCenter(yaw, pitch, center);
       const mix = ring.tick(dt, {
@@ -309,8 +316,6 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
         center,
         homes: home,
         count,
-        settled,
-        hold: Boolean(hold),
       });
       // Skip the upload while the fan is fully closed and idle.
       if (mix > 0.001 || was > 0.001) applySpread(mix);

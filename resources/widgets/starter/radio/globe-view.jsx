@@ -1,14 +1,13 @@
-// The full-size radio face: the dot globe fills the top, and the station
-// rides underneath — coordinates pinned to the globe, a status line, the
-// name in big type, a longitude ruler of stations, and the playback
-// controls. Renders when the widget frame is large enough; the compact
-// card takes over below that.
+// The radio face: the dot globe fills the top when the frame is large
+// enough, and the station rides underneath — a status line, the name in
+// big type, a longitude ruler, and the playback controls. A short or
+// narrow card keeps that same strip and drops only the globe.
 
-import { useEffect, useMemo, useRef } from "@deskulpt-test/react";
+import { useEffect, useMemo, useRef, useState } from "@deskulpt-test/react";
 import { Flex, Text } from "@deskulpt-test/ui";
 import { createGlobe } from "./globe.js";
 import { Tuner } from "./tuner.jsx";
-import { ELLIPSIS, coordOf } from "./format.js";
+import { ELLIPSIS, coordOf, lockMetaOf } from "./format.js";
 
 // Deep space: near-black void seeded with stars of mixed sizes — no nebula
 // wash. Deterministic jitter so the field stays put across renders.
@@ -70,6 +69,8 @@ export function GlobeView({
   rimBoost,
   limbGlow,
   upcoming,
+  showGlobe = true,
+  showMeta = true,
   getAudioLevels,
   onSurfacePointerDown,
   onToggle,
@@ -79,33 +80,57 @@ export function GlobeView({
   const globeRef = useRef(null);
   const tapRef = useRef(null);
   const levelsRef = useRef(getAudioLevels);
+  const [compact, setCompact] = useState(false);
   levelsRef.current = getAudioLevels;
 
   useEffect(() => {
-    globeRef.current = createGlobe(hostRef.current);
+    if (!showGlobe) {
+      globeRef.current?.destroy();
+      globeRef.current = null;
+      setCompact(false);
+      return;
+    }
+    const el = hostRef.current;
+    if (!el) return;
+    globeRef.current = createGlobe(el);
     globeRef.current?.setLevelProvider(
       () => levelsRef.current?.() ?? { level: 0, bass: 0 },
     );
+    const sync = () => setCompact((el.clientWidth ?? 0) < 560);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
     return () => {
+      ro.disconnect();
       globeRef.current?.destroy();
       globeRef.current = null;
     };
-  }, []);
+  }, [showGlobe]);
 
   // The sight labels whatever pin sits under it — locked when close,
   // "nearest" while still approaching, tuning when the sky is empty.
   useEffect(() => {
     globeRef.current?.setAimFormatter((hit, close, aimAt) => {
-      const title = coordOf(aimAt) || coordOf(hit?.station);
+      const wide = (hostRef.current?.clientWidth ?? 0) >= 560;
       const n = aimAt?.nearby || 0;
-      const meta =
+      const nearby =
         n >= 2
           ? (strings.nearby || "{n} stations nearby").replace("{n}", String(n))
           : "";
-      return { title, meta, hot: close };
+      if (wide) {
+        const st = hit?.station || station;
+        return {
+          title: st?.name || "",
+          meta: close && st ? lockMetaOf(st, strings) : nearby,
+          hot: close,
+          named: true,
+        };
+      }
+      const title = coordOf(aimAt) || coordOf(hit?.station);
+      return { title, meta: nearby, hot: close };
     });
     globeRef.current?.setOnAim(onPick);
-  }, [strings, onPick]);
+  }, [strings, onPick, station]);
 
   // Dial / skip / random / pin tap: explicit tune. The globe follows
   // and auto-aim stays off until the user drags the globe again.
@@ -174,6 +199,7 @@ export function GlobeView({
     <Flex
       id={id}
       direction="column"
+      justify={showGlobe ? "start" : "center"}
       width="100%"
       height="100%"
       onPointerDown={(event) => {
@@ -191,79 +217,102 @@ export function GlobeView({
         overflow: "hidden",
         borderRadius: 12,
         border: "1px solid var(--gray-a5)",
-        background: SKY,
+        background: "transparent",
         pointerEvents: "auto",
       }}
     >
       <div
-        ref={hostRef}
-        data-globe="true"
-        onPointerDown={onGlobePointerDown}
-        onPointerUp={onGlobePointerUp}
-        onPointerCancel={() => (tapRef.current = null)}
-        style={{ position: "relative", flex: "1 1 auto", minHeight: 0 }}
-      >
-        {limbGlow && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: LIMB,
-              pointerEvents: "none",
-            }}
-          />
-        )}
-        {coords && (
-          <Text
-            size="1"
-            style={{
-              position: "absolute",
-              left: 14,
-              bottom: 10,
-              letterSpacing: "0.14em",
-              color: TYPE.coords,
-              pointerEvents: "none",
-              ...ELLIPSIS,
-            }}
-          >
-            {coords}
-          </Text>
-        )}
-      </div>
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          borderRadius: 12,
+          background: SKY,
+          opacity: "var(--nfr-widget-bg-alpha, 1)",
+          pointerEvents: "none",
+        }}
+      />
+      {showGlobe && (
+        <div
+          ref={hostRef}
+          data-globe="true"
+          onPointerDown={onGlobePointerDown}
+          onPointerUp={onGlobePointerUp}
+          onPointerCancel={() => (tapRef.current = null)}
+          style={{
+            position: "relative",
+            zIndex: 1,
+            flex: "1 1 auto",
+            minHeight: 0,
+          }}
+        >
+          {limbGlow && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: LIMB,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+          {coords && !compact && (
+            <Text
+              size="1"
+              style={{
+                position: "absolute",
+                left: 14,
+                bottom: 10,
+                letterSpacing: "0.14em",
+                color: TYPE.coords,
+                pointerEvents: "none",
+                ...ELLIPSIS,
+              }}
+            >
+              {coords}
+            </Text>
+          )}
+        </div>
+      )}
       <Flex
         direction="column"
         gap="2"
         px="4"
-        pt="2"
+        pt={showMeta ? "2" : "1"}
         pb="3"
-        style={{ flexShrink: 0 }}
+        style={{ position: "relative", zIndex: 1, flexShrink: 0 }}
       >
-        <Flex align="center" gap="2" style={{ minHeight: 16 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              flexShrink: 0,
-              background: live ? "var(--amber-9)" : "var(--gray-8)",
-              transition: "background 400ms ease",
-            }}
-          />
-          <Text size="1" style={{ color: TYPE.status, ...ELLIPSIS }}>
-            {statusText}
-          </Text>
-        </Flex>
-        <Text
-          size="7"
-          weight="bold"
-          style={{ color: TYPE.name, ...ELLIPSIS, lineHeight: 1.15 }}
-        >
-          {station?.name || statusLine || strings.tuning}
-        </Text>
-        {detail && (
-          <Text size="1" style={{ color: TYPE.detail, ...ELLIPSIS }}>
-            {detail}
-          </Text>
+        {showMeta && (
+          <>
+            <Flex align="center" gap="2" style={{ minHeight: 16 }}>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  flexShrink: 0,
+                  background: live ? "var(--amber-9)" : "var(--gray-8)",
+                  transition: "background 400ms ease",
+                }}
+              />
+              <Text size="1" style={{ color: TYPE.status, ...ELLIPSIS }}>
+                {statusText}
+              </Text>
+            </Flex>
+            <Text
+              size="7"
+              weight="bold"
+              style={{ color: TYPE.name, ...ELLIPSIS, lineHeight: 1.15 }}
+            >
+              {station?.name || statusLine || strings.tuning}
+            </Text>
+            {detail && (
+              <Text size="1" style={{ color: TYPE.detail, ...ELLIPSIS }}>
+                {detail}
+              </Text>
+            )}
+          </>
         )}
         <Tuner
           station={station}
@@ -273,6 +322,7 @@ export function GlobeView({
           strings={strings}
           onToggle={onToggle}
           onPick={pickExplicit}
+          keepRuler={!showMeta}
         />
       </Flex>
     </Flex>

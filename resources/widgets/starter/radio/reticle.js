@@ -169,6 +169,30 @@ export function createReticle(host) {
   observer.observe(host);
   place();
 
+  function setCompact(on) {
+    lockbox.style.display = "flex";
+    lockbox.style.flexDirection = "column";
+    lockbox.style.maxWidth = `${Math.max(140, hostW * 0.55)}px`;
+    if (on) {
+      name.style.cssText =
+        `font:500 15px/1.15 ${SANS};letter-spacing:0;` +
+        "color:rgba(245,241,232,.92);order:2;overflow:hidden;" +
+        "text-overflow:ellipsis;white-space:nowrap;";
+      meta.style.cssText =
+        `font:400 11px/1.3 ${SANS};letter-spacing:.04em;` +
+        "color:rgba(245,241,232,.55);order:1;margin:0 0 3px;";
+    } else {
+      name.style.cssText =
+        `font:400 10.5px/16px ${SANS};letter-spacing:.12em;` +
+        "font-variant-numeric:tabular-nums;color:rgba(245,241,232,.85);" +
+        "order:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+      meta.style.cssText =
+        `font:400 10.5px/16px ${SANS};letter-spacing:.04em;` +
+        "font-variant-numeric:tabular-nums;color:rgba(245,241,232,.42);" +
+        "margin-top:2px;order:0;";
+    }
+  }
+
   function setMeta(raw) {
     const text = raw ?? "";
     meta.textContent = text;
@@ -276,10 +300,12 @@ export function createReticle(host) {
       meta: metaText = "",
       progress: next = 0,
       hot = false,
+      named = false,
     } = {}) {
-      const key = `${title}|${metaText}|${hot ? 1 : 0}`;
+      const key = `${title}|${metaText}|${hot ? 1 : 0}|${named ? 1 : 0}`;
       if (key !== lastKey) {
         lastKey = key;
+        setCompact(named);
         name.textContent = title;
         name.style.opacity = title ? "1" : "0";
         setMeta(metaText);

@@ -37,6 +37,8 @@ const FEED_SIZE = 6;
 // Below this the widget is too cramped for the globe face.
 const GLOBE_MIN_WIDTH = 460;
 const GLOBE_MIN_HEIGHT = 340;
+// Below this the now-playing copy goes; only the ruler and buttons remain.
+const META_MIN_HEIGHT = 200;
 // The wallpaper hook and the native pointer event both see one physical
 // click when the canvas is interactive; a tap inside this window counts
 // once.
@@ -66,9 +68,11 @@ function Radio({ config, id, width, height }) {
   const handleTapRef = useRef(() => {});
 
   const mode = modeOf(config);
-  const big =
-    mode === "card" && width >= GLOBE_MIN_WIDTH && height >= GLOBE_MIN_HEIGHT;
-  const markers = useStationMarkers(big, config, cacheEpoch);
+  const card = mode === "card";
+  const showGlobe =
+    card && width >= GLOBE_MIN_WIDTH && height >= GLOBE_MIN_HEIGHT;
+  const showMeta = showGlobe || height >= META_MIN_HEIGHT;
+  const markers = useStationMarkers(card, config, cacheEpoch);
 
   useEffect(() => subscribeLanguage(() => setLanguage(readLanguage())), []);
 
@@ -102,9 +106,6 @@ function Radio({ config, id, width, height }) {
     // The component may have unmounted while the catalog request was in
     // flight; a destroyed player must not be handed a new station.
     if (playerRef.current !== player) return;
-    // A fresh station resets the skip budget: the next dead stream is a new
-    // problem, not the sixth of a streak.
-    if (player.station?.uuid !== next.uuid) skipRef.current = 0;
     setStation(next);
     setGeo(null);
     player.play(next);
@@ -117,6 +118,7 @@ function Radio({ config, id, width, height }) {
   playPickRef.current = async (next) => {
     if (!next || next.uuid === station?.uuid) return;
     if (status === "blocked") return playerRef.current?.resume();
+    skipRef.current = 0;
     feedRef.current = feedRef.current.filter((s) => s.uuid !== next.uuid);
     feedRef.current.unshift(next);
     await playNextRef.current();
@@ -135,14 +137,20 @@ function Radio({ config, id, width, height }) {
       player.resume();
       return;
     }
-    if (touchOf(configRef.current) === "feed") void playNextRef.current();
+    if (touchOf(configRef.current) === "feed") {
+      skipRef.current = 0;
+      void playNextRef.current();
+    }
   };
 
   // The player outlives renders; dead streams are skipped here so the
   // component never has to hold retry logic.
   useEffect(() => {
     const player = createPlayer({
-      onState: (state) => setStatus(state),
+      onState: (state) => {
+        if (state === "playing") skipRef.current = 0;
+        setStatus(state);
+      },
       onDead: () => {
         skipRef.current += 1;
         if (skipRef.current > MAX_SKIP) {
@@ -320,10 +328,13 @@ function Radio({ config, id, width, height }) {
     if (!player) return;
     if (status === "playing") player.pause();
     else if (status === "paused" || status === "blocked") player.resume();
-    else void playNextRef.current();
+    else {
+      skipRef.current = 0;
+      void playNextRef.current();
+    }
   };
 
-  if (big) {
+  if (card) {
     return (
       <GlobeView
         id={`radio-widget-${id}`}
@@ -340,6 +351,8 @@ function Radio({ config, id, width, height }) {
         rimBoost={rimBoostOf(config)}
         limbGlow={limbGlowOf(config)}
         upcoming={upcoming}
+        showGlobe={showGlobe}
+        showMeta={showMeta}
         getAudioLevels={() =>
           playerRef.current?.levels?.() ?? { level: 0, bass: 0 }
         }
