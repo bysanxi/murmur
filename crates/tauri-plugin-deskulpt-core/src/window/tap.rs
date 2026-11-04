@@ -2,7 +2,11 @@
 //!
 //! The canvas sits under the desktop icons and stays click-through, so the
 //! page never sees the pointer. A low-level hook still sees the button, and
-//! the page handles it when a widget asked for taps.
+//! the page handles it when a widget asked for taps. Delivery is per widget:
+//! widgets register `window.__murmurDeskulptTaps[id] = (x, y) => ...` for
+//! their own id, so several widgets can listen at once. The legacy
+//! `window.__murmurPondTap(x, y)` hook is still called for widgets that only
+//! know the old contract.
 
 use std::sync::OnceLock;
 use std::sync::mpsc::{SyncSender, sync_channel};
@@ -79,10 +83,16 @@ where
             if !x.is_finite() || !y.is_finite() {
                 continue;
             }
-            if canvas.widgets().try_tap_point(x, y) != Some(true) {
+            let Some(Some(id)) = canvas.widgets().try_tap_point(x, y) else {
                 continue;
-            }
-            let _ = canvas.eval(format!("window.__murmurPondTap?.({x:.3},{y:.3})"));
+            };
+            // The id is a directory name, but serialize it as JSON anyway so
+            // any character stays safe inside the evaluated script.
+            let id = serde_json::to_string(&id).unwrap_or_default();
+            let _ = canvas.eval(format!(
+                "window.__murmurDeskulptTaps?.[{id}]?.({x:.3},{y:.3});window.__murmurPondTap?.({x:\
+                 .3},{y:.3})"
+            ));
         }
     });
 }

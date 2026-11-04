@@ -9,7 +9,7 @@ import {
   TextField,
 } from "@radix-ui/themes";
 import { css } from "@emotion/react";
-import { ChangeEvent } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { LuRotateCcw } from "react-icons/lu";
 import { DeskulptWidgets } from "@deskulpt/bindings";
 import { useTranslation } from "@deskulpt/utils";
@@ -17,6 +17,7 @@ import { useWidgetsStore } from "../../hooks";
 import SectionTable from "../Settings/SectionTable";
 import CityField from "./CityField";
 import FontField from "./FontField";
+import { loadRadioCountryCounts } from "./radioCountryCounts";
 
 const styles = {
   table: css({
@@ -53,6 +54,72 @@ const writeConfig = (
   value: DeskulptWidgets.WidgetConfigValue,
 ) => {
   DeskulptWidgets.Commands.updateSettings(id, { config: { [key]: value } });
+};
+
+/// Radio "From" select: options are ISO country codes (plus "random").
+const isCountrySelect = (spec: DeskulptWidgets.WidgetSettingSpec) =>
+  spec.type === "select" &&
+  spec.key === "country" &&
+  (spec.options ?? []).some((choice) => /^[A-Z]{2}$/.test(choice.value));
+
+const withCount = (label: string, count: number | undefined) =>
+  count != null && count > 0 ? `${label} · ${count}` : label;
+
+const CountrySelect = ({
+  id,
+  spec,
+  value,
+  disabled,
+  language,
+}: {
+  id: string;
+  spec: DeskulptWidgets.WidgetSettingSpec;
+  value: DeskulptWidgets.WidgetConfigValue | undefined;
+  disabled: boolean;
+  language: string;
+}) => {
+  const choices = spec.options ?? [];
+  const current = value ?? spec.default;
+  const selected =
+    typeof current === "string" ? current : (choices[0]?.value ?? "");
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    void loadRadioCountryCounts().then((data) => {
+      if (!alive) return;
+      setCounts(data.byCode);
+      setTotal(data.total);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (choices.length === 0) return null;
+  return (
+    <Select.Root
+      size="1"
+      disabled={disabled}
+      value={selected}
+      onValueChange={(next) => writeConfig(id, spec.key, next)}
+    >
+      <Select.Trigger />
+      <Select.Content>
+        {choices.map((choice) => {
+          const base = widgetText(choice.label, language);
+          const count =
+            choice.value === "random" ? total : counts[choice.value];
+          return (
+            <Select.Item key={choice.value} value={choice.value}>
+              {withCount(base, count)}
+            </Select.Item>
+          );
+        })}
+      </Select.Content>
+    </Select.Root>
+  );
 };
 
 const OwnControl = ({
@@ -151,6 +218,17 @@ const OwnControl = ({
   }
 
   if (spec.type === "select") {
+    if (isCountrySelect(spec)) {
+      return (
+        <CountrySelect
+          id={id}
+          spec={spec}
+          value={value}
+          disabled={disabled}
+          language={language}
+        />
+      );
+    }
     const choices = spec.options ?? [];
     const selected =
       typeof current === "string" ? current : (choices[0]?.value ?? "");

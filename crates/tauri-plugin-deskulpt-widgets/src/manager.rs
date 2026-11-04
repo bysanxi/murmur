@@ -40,6 +40,49 @@ fn wants_tap(settings: &crate::catalog::WidgetSettings) -> bool {
     )
 }
 
+/// Where starter widget sources are read from when installing or syncing.
+fn starter_source_root<R: Runtime>(app_handle: &AppHandle<R>) -> Result<PathBuf> {
+    if cfg!(debug_assertions) {
+        // Dev always mirrors the workspace tree so edits apply without waiting
+        // for a resource rebundle into target/debug.
+        let root =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../resources/widgets/starter");
+        Ok(dunce::simplified(&root).to_path_buf())
+    } else {
+        Ok(app_handle
+            .path()
+            .resource_dir()?
+            .join("resources")
+            .join("widgets")
+            .join("starter"))
+    }
+}
+
+/// Copy every file under `src` into `dst`, creating directories as needed.
+/// Files that exist only in `dst` (runtime caches, etc.) are left alone.
+fn mirror_dir(src: &Path, dst: &Path) -> Result<()> {
+    std::fs::create_dir_all(dst).with_context(|| format!("Failed to create {}", dst.display()))?;
+    for entry in
+        std::fs::read_dir(src).with_context(|| format!("Failed to read {}", src.display()))?
+    {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let to = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            mirror_dir(&entry.path(), &to)?;
+        } else if file_type.is_file() {
+            std::fs::copy(entry.path(), &to).with_context(|| {
+                format!(
+                    "Failed to copy {} → {}",
+                    entry.path().display(),
+                    to.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
 /// Manager for Deskulpt widgets.
 pub struct WidgetsManager<R: Runtime> {
     /// The Tauri app handle.
@@ -210,15 +253,18 @@ impl<R: Runtime> WidgetsManager<R> {
         Some(covers)
     }
 
-    /// Whether the topmost widget at this canvas point asked for a tap.
+    /// The id of the topmost widget at this canvas point that asked for a tap.
     ///
     /// Coordinates are logical pixels of the canvas. A fullscreen widget is
     /// tested by its box, so a click on a smaller widget above it is not a tap.
-    pub fn try_tap_point(&self, x: f64, y: f64) -> Option<bool> {
+    ///
+    /// The outer `Option` is `None` while the catalog is locked; the inner one
+    /// is `None` when no widget at the point asked for a tap.
+    pub fn try_tap_point(&self, x: f64, y: f64) -> Option<Option<String>> {
         self.ensure_geometry_ready().ok()?;
         let catalog = self.catalog.try_read()?;
-        let mut best: Option<(i16, bool)> = None;
-        for widget in catalog.0.values() {
+        let mut best: Option<(i16, Option<&str>)> = None;
+        for (id, widget) in catalog.0.iter() {
             let settings = &widget.settings;
             let left = settings.x as f64;
             let top = settings.y as f64;
@@ -229,10 +275,10 @@ impl<R: Runtime> WidgetsManager<R> {
             }
             match best {
                 Some((z, _)) if settings.z_index < z => {},
-                _ => best = Some((settings.z_index, wants_tap(settings))),
+                _ => best = Some((settings.z_index, wants_tap(settings).then_some(id.as_str()))),
             }
         }
-        Some(best.is_some_and(|(_, wants)| wants))
+        Some(best.and_then(|(_, id)| id.map(str::to_string)))
     }
 
     /// Persist the current widgets to disk.
@@ -368,35 +414,53 @@ impl<R: Runtime> WidgetsManager<R> {
     /// this method to return an error. However, only if all starter widgets are
     /// added successfully will the settings be updated to mark them as added.
     ///
-    /// This method is idempotent. If all starter widgets have been successfully
-    /// added once, subsequent calls are no-ops. If some starter widgets have
-    /// been added but not all, subsequent calls will silently skip already
-    /// existing starter widgets and attempt to add the remaining ones.
+    /// In debug builds this always re-mirrors from the workspace
+    /// `resources/widgets/starter` tree into the installed widget dirs, so
+    /// edits land on the next launch without a reinstall. Runtime-only files
+    /// already in the destination (e.g. caches) are left alone.
+    ///
+    /// Release builds stay idempotent: once every starter has been added,
+    /// subsequent calls are no-ops.
     pub fn maybe_add_starter(&self) -> Result<()> {
+        #[cfg(not(debug_assertions))]
         if self.app_handle.settings().read().starter_widgets_added {
             return Ok(());
         }
 
-        let resource_dir = self.app_handle.path().resource_dir()?;
+        let src_root = starter_source_root(&self.app_handle)?;
 
         let mut has_error = false;
-        for (widget_id, widget) in [("@murmur.pond", "pond"), ("@murmur.denghua", "denghua")] {
-            let src = resource_dir
-                .join("resources")
-                .join("widgets")
-                .join("starter")
-                .join(widget);
-            let dst = self.dir.join(&widget_id);
+        for (widget_id, widget) in [
+            ("@murmur.pond", "pond"),
+            ("@murmur.denghua", "denghua"),
+            ("@murmur.radio", "radio"),
+        ] {
+            let src = src_root.join(widget);
+            let dst = self.dir.join(widget_id);
+
+            #[cfg(not(debug_assertions))]
             if dst.exists() {
                 tracing::debug!(%widget_id, "Starter widget already exists, skipping");
                 continue;
             }
 
-            match copy_dir::copy_dir(&src, &dst)
-                .with_context(|| format!("Failed to add starter widget {widget_id}"))
-            {
-                Ok(_) => {
-                    tracing::info!(%widget_id, "Added starter widget");
+            let syncing = cfg!(debug_assertions) && dst.exists();
+            let result = if syncing {
+                mirror_dir(&src, &dst)
+                    .with_context(|| format!("Failed to sync starter widget {widget_id}"))
+            } else {
+                copy_dir::copy_dir(&src, &dst)
+                    .map(|_| ())
+                    .with_context(|| format!("Failed to add starter widget {widget_id}"))
+            };
+
+            match result {
+                Ok(()) => {
+                    if syncing {
+                        tracing::info!(%widget_id, "Synced starter widget from source");
+                    } else {
+                        tracing::info!(%widget_id, "Added starter widget");
+                    }
                 },
                 Err(e) => {
                     has_error = true;

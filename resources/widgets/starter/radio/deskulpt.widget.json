@@ -1,0 +1,234 @@
+{
+  "name": "电台",
+  "version": "0.1.0",
+  "authors": ["hiudong"],
+  "license": "MIT",
+  "description": "A live radio station from somewhere in the world.",
+  "entry": "index.jsx",
+  "x": 40,
+  "y": 220,
+  "width": 480,
+  "height": 620,
+  "options": [
+    {
+      "key": "country",
+      "label": { "zh-CN": "来自", "en": "From" },
+      "type": "select",
+      "default": "random",
+      "group": { "zh-CN": "电台", "en": "Station" },
+      "options": [
+        {
+          "value": "random",
+          "label": { "zh-CN": "世界各地", "en": "Around the world" }
+        },
+        { "value": "US", "label": { "zh-CN": "美国", "en": "United States" } },
+        { "value": "DE", "label": { "zh-CN": "德国", "en": "Germany" } },
+        { "value": "FR", "label": { "zh-CN": "法国", "en": "France" } },
+        { "value": "RU", "label": { "zh-CN": "俄罗斯", "en": "Russia" } },
+        { "value": "MX", "label": { "zh-CN": "墨西哥", "en": "Mexico" } },
+        { "value": "GB", "label": { "zh-CN": "英国", "en": "United Kingdom" } },
+        { "value": "CN", "label": { "zh-CN": "中国", "en": "China" } },
+        { "value": "HK", "label": { "zh-CN": "香港", "en": "Hong Kong" } },
+        { "value": "SG", "label": { "zh-CN": "新加坡", "en": "Singapore" } },
+        { "value": "TW", "label": { "zh-CN": "台湾", "en": "Taiwan" } },
+        { "value": "JP", "label": { "zh-CN": "日本", "en": "Japan" } },
+        { "value": "KR", "label": { "zh-CN": "韩国", "en": "Korea" } },
+        { "value": "IN", "label": { "zh-CN": "印度", "en": "India" } },
+        {
+          "value": "ID",
+          "label": { "zh-CN": "印度尼西亚", "en": "Indonesia" }
+        },
+        { "value": "PH", "label": { "zh-CN": "菲律宾", "en": "Philippines" } },
+        { "value": "MY", "label": { "zh-CN": "马来西亚", "en": "Malaysia" } },
+        { "value": "TH", "label": { "zh-CN": "泰国", "en": "Thailand" } },
+        { "value": "TR", "label": { "zh-CN": "土耳其", "en": "Türkiye" } },
+        {
+          "value": "AE",
+          "label": { "zh-CN": "阿联酋", "en": "United Arab Emirates" }
+        },
+        {
+          "value": "SA",
+          "label": { "zh-CN": "沙特阿拉伯", "en": "Saudi Arabia" }
+        },
+        { "value": "IL", "label": { "zh-CN": "以色列", "en": "Israel" } },
+        { "value": "LB", "label": { "zh-CN": "黎巴嫩", "en": "Lebanon" } },
+        { "value": "AF", "label": { "zh-CN": "阿富汗", "en": "Afghanistan" } },
+        { "value": "NP", "label": { "zh-CN": "尼泊尔", "en": "Nepal" } },
+        { "value": "AU", "label": { "zh-CN": "澳大利亚", "en": "Australia" } },
+        { "value": "NZ", "label": { "zh-CN": "新西兰", "en": "New Zealand" } },
+        { "value": "CA", "label": { "zh-CN": "加拿大", "en": "Canada" } },
+        {
+          "value": "DO",
+          "label": { "zh-CN": "多米尼加", "en": "Dominican Republic" }
+        },
+        { "value": "JM", "label": { "zh-CN": "牙买加", "en": "Jamaica" } },
+        { "value": "BR", "label": { "zh-CN": "巴西", "en": "Brazil" } },
+        { "value": "AR", "label": { "zh-CN": "阿根廷", "en": "Argentina" } },
+        { "value": "CL", "label": { "zh-CN": "智利", "en": "Chile" } },
+        { "value": "CO", "label": { "zh-CN": "哥伦比亚", "en": "Colombia" } },
+        { "value": "PE", "label": { "zh-CN": "秘鲁", "en": "Peru" } },
+        { "value": "EC", "label": { "zh-CN": "厄瓜多尔", "en": "Ecuador" } },
+        { "value": "UY", "label": { "zh-CN": "乌拉圭", "en": "Uruguay" } },
+        { "value": "VE", "label": { "zh-CN": "委内瑞拉", "en": "Venezuela" } },
+        { "value": "BO", "label": { "zh-CN": "玻利维亚", "en": "Bolivia" } },
+        { "value": "ES", "label": { "zh-CN": "西班牙", "en": "Spain" } },
+        { "value": "PT", "label": { "zh-CN": "葡萄牙", "en": "Portugal" } },
+        { "value": "IT", "label": { "zh-CN": "意大利", "en": "Italy" } },
+        { "value": "NL", "label": { "zh-CN": "荷兰", "en": "Netherlands" } },
+        { "value": "BE", "label": { "zh-CN": "比利时", "en": "Belgium" } },
+        { "value": "CH", "label": { "zh-CN": "瑞士", "en": "Switzerland" } },
+        { "value": "AT", "label": { "zh-CN": "奥地利", "en": "Austria" } },
+        { "value": "SE", "label": { "zh-CN": "瑞典", "en": "Sweden" } },
+        { "value": "NO", "label": { "zh-CN": "挪威", "en": "Norway" } },
+        { "value": "DK", "label": { "zh-CN": "丹麦", "en": "Denmark" } },
+        { "value": "FI", "label": { "zh-CN": "芬兰", "en": "Finland" } },
+        { "value": "IE", "label": { "zh-CN": "爱尔兰", "en": "Ireland" } },
+        { "value": "PL", "label": { "zh-CN": "波兰", "en": "Poland" } },
+        { "value": "CZ", "label": { "zh-CN": "捷克", "en": "Czechia" } },
+        { "value": "HU", "label": { "zh-CN": "匈牙利", "en": "Hungary" } },
+        { "value": "RO", "label": { "zh-CN": "罗马尼亚", "en": "Romania" } },
+        { "value": "BG", "label": { "zh-CN": "保加利亚", "en": "Bulgaria" } },
+        { "value": "GR", "label": { "zh-CN": "希腊", "en": "Greece" } },
+        { "value": "RS", "label": { "zh-CN": "塞尔维亚", "en": "Serbia" } },
+        { "value": "HR", "label": { "zh-CN": "克罗地亚", "en": "Croatia" } },
+        {
+          "value": "BA",
+          "label": { "zh-CN": "波黑", "en": "Bosnia and Herzegovina" }
+        },
+        { "value": "SI", "label": { "zh-CN": "斯洛文尼亚", "en": "Slovenia" } },
+        { "value": "SK", "label": { "zh-CN": "斯洛伐克", "en": "Slovakia" } },
+        { "value": "UA", "label": { "zh-CN": "乌克兰", "en": "Ukraine" } },
+        { "value": "BY", "label": { "zh-CN": "白俄罗斯", "en": "Belarus" } },
+        { "value": "LV", "label": { "zh-CN": "拉脱维亚", "en": "Latvia" } },
+        { "value": "LT", "label": { "zh-CN": "立陶宛", "en": "Lithuania" } },
+        { "value": "EE", "label": { "zh-CN": "爱沙尼亚", "en": "Estonia" } },
+        { "value": "AL", "label": { "zh-CN": "阿尔巴尼亚", "en": "Albania" } },
+        {
+          "value": "MK",
+          "label": { "zh-CN": "北马其顿", "en": "North Macedonia" }
+        },
+        { "value": "ME", "label": { "zh-CN": "黑山", "en": "Montenegro" } },
+        { "value": "GE", "label": { "zh-CN": "格鲁吉亚", "en": "Georgia" } },
+        { "value": "AM", "label": { "zh-CN": "亚美尼亚", "en": "Armenia" } },
+        { "value": "AZ", "label": { "zh-CN": "阿塞拜疆", "en": "Azerbaijan" } },
+        {
+          "value": "KZ",
+          "label": { "zh-CN": "哈萨克斯坦", "en": "Kazakhstan" }
+        },
+        { "value": "EG", "label": { "zh-CN": "埃及", "en": "Egypt" } },
+        { "value": "MA", "label": { "zh-CN": "摩洛哥", "en": "Morocco" } },
+        { "value": "TN", "label": { "zh-CN": "突尼斯", "en": "Tunisia" } },
+        { "value": "DZ", "label": { "zh-CN": "阿尔及利亚", "en": "Algeria" } },
+        { "value": "ZA", "label": { "zh-CN": "南非", "en": "South Africa" } },
+        { "value": "NG", "label": { "zh-CN": "尼日利亚", "en": "Nigeria" } },
+        { "value": "GH", "label": { "zh-CN": "加纳", "en": "Ghana" } },
+        { "value": "KE", "label": { "zh-CN": "肯尼亚", "en": "Kenya" } },
+        { "value": "UG", "label": { "zh-CN": "乌干达", "en": "Uganda" } },
+        { "value": "PK", "label": { "zh-CN": "巴基斯坦", "en": "Pakistan" } },
+        { "value": "BD", "label": { "zh-CN": "孟加拉国", "en": "Bangladesh" } },
+        { "value": "LK", "label": { "zh-CN": "斯里兰卡", "en": "Sri Lanka" } },
+        { "value": "MO", "label": { "zh-CN": "澳门", "en": "Macao" } }
+      ]
+    },
+    {
+      "key": "touch",
+      "label": { "zh-CN": "点壁纸换台", "en": "Tap to switch" },
+      "type": "select",
+      "default": "feed",
+      "group": { "zh-CN": "电台", "en": "Station" },
+      "options": [
+        { "value": "off", "label": { "zh-CN": "关闭", "en": "Off" } },
+        { "value": "feed", "label": { "zh-CN": "开启", "en": "On" } }
+      ]
+    },
+    {
+      "key": "httpsOnly",
+      "label": { "zh-CN": "只听 HTTPS", "en": "HTTPS only" },
+      "type": "bool",
+      "default": true,
+      "group": { "zh-CN": "电台", "en": "Station" }
+    },
+    {
+      "key": "cacheCatalog",
+      "label": {
+        "zh-CN": "缓存电台目录",
+        "en": "Cache station catalog"
+      },
+      "type": "bool",
+      "default": true,
+      "group": { "zh-CN": "电台", "en": "Station" }
+    },
+    {
+      "key": "cacheClear",
+      "label": {
+        "zh-CN": "清除目录缓存",
+        "en": "Clear catalog cache"
+      },
+      "type": "select",
+      "default": "keep",
+      "whenKey": "cacheCatalog",
+      "whenValue": true,
+      "group": { "zh-CN": "电台", "en": "Station" },
+      "options": [
+        { "value": "keep", "label": { "zh-CN": "保留", "en": "Keep" } },
+        {
+          "value": "clear",
+          "label": { "zh-CN": "清除并重新拉取", "en": "Clear and refetch" }
+        }
+      ]
+    },
+    {
+      "key": "volume",
+      "label": { "zh-CN": "音量", "en": "Volume" },
+      "type": "number",
+      "default": 0.6,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "group": { "zh-CN": "播放", "en": "Playback" }
+    },
+    {
+      "key": "rotate",
+      "label": { "zh-CN": "换台间隔（分钟）", "en": "Switch every (minutes)" },
+      "type": "number",
+      "default": 0,
+      "min": 0,
+      "max": 240,
+      "step": 5,
+      "group": { "zh-CN": "播放", "en": "Playback" }
+    },
+    {
+      "key": "showInfo",
+      "label": { "zh-CN": "显示", "en": "Show" },
+      "type": "select",
+      "default": "card",
+      "group": { "zh-CN": "显示", "en": "Display" },
+      "options": [
+        { "value": "card", "label": { "zh-CN": "卡片", "en": "Card" } },
+        { "value": "text", "label": { "zh-CN": "仅文字", "en": "Text only" } },
+        { "value": "hidden", "label": { "zh-CN": "隐藏", "en": "Hidden" } }
+      ]
+    },
+    {
+      "key": "spin",
+      "label": { "zh-CN": "地球缓慢自转", "en": "Slow globe drift" },
+      "type": "bool",
+      "default": false,
+      "group": { "zh-CN": "显示", "en": "Display" }
+    },
+    {
+      "key": "rimBoost",
+      "label": { "zh-CN": "地球边缘加亮", "en": "Brighten globe limb" },
+      "type": "bool",
+      "default": false,
+      "group": { "zh-CN": "显示", "en": "Display" }
+    },
+    {
+      "key": "limbGlow",
+      "label": { "zh-CN": "地球浅蓝光斑", "en": "Soft blue globe wash" },
+      "type": "bool",
+      "default": false,
+      "group": { "zh-CN": "显示", "en": "Display" }
+    }
+  ]
+}

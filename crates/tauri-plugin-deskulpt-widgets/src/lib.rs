@@ -10,6 +10,7 @@ mod events;
 mod fonts;
 mod manager;
 pub mod persist;
+mod radio_proxy;
 mod registry;
 mod render;
 
@@ -23,6 +24,7 @@ deskulpt_common::bindings::build_bindings!();
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     deskulpt_common::init::init_builder!()
         .setup(|app_handle, _| {
+            radio_proxy::spawn();
             app_handle.manage(WidgetsManager::new(app_handle.clone())?);
             Ok(())
         })
