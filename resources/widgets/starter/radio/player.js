@@ -49,6 +49,7 @@ export function createPlayer(host) {
   let tapPromise = null;
   let lastTapTry = 0;
   let ducked = 1;
+  let globeSilent = false; // globe sight is not on the station on air
   let inputActive = false;
 
   let tuning = null;
@@ -228,20 +229,29 @@ export function createPlayer(host) {
         duckStream(1);
       }
     },
-    /// Per-frame sight data from the globe, or nothing on the ruler.
+    /// Per-frame sight data from the globe. A globe drag takes the
+    /// reticle as authority: the ruler's station stays audible only
+    /// while that reticle is on it. Empty ocean keeps the stream down
+    /// after the hand lifts, until a lock or the ruler picks again.
     sight(info = {}) {
       inputActive = Boolean(info.dragging);
+      if (info.globe && (info.dragging || info.settling || info.detached)) {
+        globeSilent = !info.onPlaying;
+      }
       if (!canTune()) {
         restoreDuck();
         return;
       }
       if (info.dragging) wakeTap();
       tuning?.sight(info);
-      restoreDuck();
+      if (globeSilent) duckStream(0);
+      else restoreDuck();
     },
     /// Ruler scrub; `detent` fires once per station slot crossing.
+    /// The ruler always has a station, so it is not the globe's rule.
     scrub(info = {}) {
       inputActive = Boolean(info.dragging);
+      globeSilent = false;
       if (!canTune()) {
         restoreDuck();
         return;
@@ -262,6 +272,7 @@ export function createPlayer(host) {
       tuning?.lock();
       emit("connecting");
       setTuneMode("connecting");
+      globeSilent = false;
       duckStream(1);
       connectTimer = setTimeout(() => {
         if (mine === generation && station) die("timeout");
@@ -315,6 +326,7 @@ export function createPlayer(host) {
       const mine = generation;
       clearConnect();
       setTuneMode("connecting");
+      globeSilent = false;
       duckStream(1);
       connectTimer = setTimeout(() => {
         if (mine === generation && station) die("timeout");

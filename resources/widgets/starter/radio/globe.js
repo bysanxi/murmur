@@ -13,16 +13,17 @@ import { createReticle } from "./reticle.js";
 import { coordOf } from "./format.js";
 
 const DEG = Math.PI / 180;
-// RoamDial scales drag with camera gap to the surface
-// (0.0021 * (b - radius*0.98) / 4.6), so a close zoom parks on a pin
-// while a far view still turns the world. Same constants, unit sphere.
-const DRAG_BASE = 0.0021;
-const DRAG_REF = 4.6;
+// RoamDial: 0.0021 * (b - radius*0.98) / 4.6 radians per pixel.
+// 4.6 is their gap at the resting camera, so a drag there is 0.0021
+// rad/px and a closer zoom parks. Our globe is a unit sphere, so the
+// reference gap is this camera's own rest gap, not their 4.6.
+const DRAG_AT_REST = 0.0021;
 const DRAG_SURFACE = 0.98;
 const AUTO_SPIN = 0.05; // rad/s, roamdial's drift
 const FOCUS_EASE = 3.0; // 1/s, how quickly the view finds a station
 const MAX_PITCH = 1.3;
 const EYE = 3.2; // camera distance at rest
+const DRAG_REST_GAP = EYE - DRAG_SURFACE;
 const ZOOM_SENS = 0.0012; // wheel notches → exponential dolly
 // Closest gap mirrors roamdial (~0.35 past a unit sphere): their camera
 // sits at ~1.95 with a 1.6-radius globe. Far end stays a wide overview.
@@ -197,6 +198,7 @@ export function createGlobe(host) {
   let aimArmed = null; // uuid already fired for this settle
   let browseArmed = false; // only auto-tune after the user dragged the globe
   let detached = false; // drag owns the camera until an explicit tune
+  let sightOnPlaying = false; // sight is on the station already on air
   let holdUntil = 0; // ms timestamp: explicit pick owns the camera until then
   let dragMoved = false;
   let dragAmount = 0; // rad accumulated since the last frame
@@ -264,8 +266,9 @@ export function createGlobe(host) {
       detached = true;
       aimArmed = null;
     }
-    // Closer camera → smaller rad/px, matching screen motion to the pins.
-    const spin = (DRAG_BASE * Math.max(eye - DRAG_SURFACE, 0.05)) / DRAG_REF;
+    // Closer camera → smaller rad/px, so a zoomed-in drag can park on a pin.
+    const spin =
+      (DRAG_AT_REST * Math.max(eye - DRAG_SURFACE, 0.05)) / DRAG_REST_GAP;
     yaw += dx * spin;
     pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch + dy * spin));
     // Radians moved since the last frame; pointer events can arrive faster
@@ -372,6 +375,9 @@ export function createGlobe(host) {
     if (!dragging) aimIdle += dt;
     const hit = sightHit();
     const close = Boolean(hit && hit.dist < AIM_CLOSE);
+    sightOnPlaying = Boolean(
+      close && hit.station?.uuid && hit.station.uuid === playing?.uuid,
+    );
     const target = close
       ? 1
       : hit
@@ -532,9 +538,17 @@ export function createGlobe(host) {
     // after release it keeps following the camera and the lock commit.
     const active = dragging && dragTouched;
     const settling = !dragging && settleNoise && now < settleUntil;
+    // While the hand owns the globe, the sight decides whether the
+    // station on the ruler is still the one under the reticle.
+    const globeHear = {
+      globe: true,
+      detached,
+      onPlaying: sightOnPlaying,
+    };
     if (active) {
       sightActive = true;
       emitSight({
+        ...globeHear,
         speed: Math.min(1, moved / Math.max(dt, 0.001) / 2.2),
         dragging: true,
         progress: aimProgress,
@@ -542,6 +556,7 @@ export function createGlobe(host) {
     } else if (settling) {
       sightActive = true;
       emitSight({
+        ...globeHear,
         speed: 0,
         dragging: false,
         settling: true,
@@ -549,7 +564,12 @@ export function createGlobe(host) {
       });
     } else if (sightActive) {
       sightActive = false;
-      emitSight({ speed: 0, dragging: false, progress: 0 });
+      emitSight({
+        ...globeHear,
+        speed: 0,
+        dragging: false,
+        progress: 0,
+      });
     }
     requestAnimationFrame(frame);
   }
