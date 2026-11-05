@@ -76,7 +76,7 @@ function lineLook(config, visible) {
   };
 }
 
-function Pond({ config }) {
+function Pond({ config, id }) {
   const host = useRef(null);
   const pondRef = useRef(null);
   const configRef = useRef(config);
@@ -85,7 +85,7 @@ function Pond({ config }) {
   const [shown, setShown] = useState(line);
 
   useLayoutEffect(() => {
-    const pond = mountPond(host.current, configRef.current);
+    const pond = mountPond(host.current, configRef.current, id);
     pondRef.current = pond;
     const tick = () => {
       const now = new Date();
@@ -101,7 +101,9 @@ function Pond({ config }) {
       pondRef.current = null;
       pond.destroy();
     };
-  }, []);
+    // `id` only names the tap registry entry; it is fixed per instance, so
+    // listing it satisfies the hook contract without ever re-mounting.
+  }, [id]);
 
   useEffect(() => {
     const pond = pondRef.current;

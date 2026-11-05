@@ -93,9 +93,11 @@ Illustration and text are one thing, not an arbitrary pairing.
   - **Sink** (default) — canvas is click-through, the desktop stays usable
   - **Float** — widgets are interactable, misses fall through to the desktop
   - **Auto** — follows the pointer, so widgets and desktop both feel live
-- On Windows, a left click on the wallpaper is forwarded to
-  `window.__murmurPondTap(x, y)` when the topmost widget under the cursor
-  declares `touch: feed | watch`.
+- On Windows, a left click on the wallpaper is forwarded to the handler the
+  topmost widget under the cursor registered as
+  `window.__murmurDeskulptTaps[id](x, y)` when that widget declares
+  `touch: feed | watch`. The legacy `window.__murmurPondTap(x, y)` hook is
+  still called alongside it, so third-party widgets keep working.
 
 ### Widget system
 
@@ -146,7 +148,7 @@ Widgets are fetched from a registry:
 
 Installed widgets land in the widgets base directory as `@<handle>.<id>`.
 
-### Starter widget
+### Starter widgets
 
 `@murmur.pond` — **半亩方塘**, a quiet pond whose light, weather, and sentence
 follow the time of day. WebGL2 with a Canvas2D fallback, realistic and ink-wash
@@ -154,6 +156,24 @@ styles, synthesised sound, and optional wallpaper taps.
 
 Technical notes: [English](./resources/widgets/starter/pond/README.md) ·
 [中文](./resources/widgets/starter/pond/README.zh.md)
+
+`@murmur.denghua` — **灯花**, a line that shows up on its own.
+
+`@murmur.radio` — **电台**, a live station picked at random from somewhere in
+the world. The catalog comes from
+[Radio Browser](https://www.radio-browser.info/) (only streams that passed
+their last check, over HTTPS, in a codec browsers can decode), and place and
+timezone come from [GeoNames](https://www.geonames.org/), cached inside the
+widget's sandbox. The widget adapts to its frame: large, it shows a dot globe
+(WebGL2 point cloud baked from Natural Earth) above the station's name, its
+coordinates, a tuner strip, and the playback controls; small, it falls back to
+the compact card with the station, its city, and the local time there. Every
+station the catalog can locate is pinned on the globe — pins share the land
+dots' size and twinkle on their own phases — and switching eases the view
+onto that station's region, where a scope reticle locks on and labels the
+name at its edge — still by default, with an optional slow drift in
+settings. Tap the wallpaper to switch stations; a dead stream moves on by
+itself.
 
 ---
 
@@ -451,14 +471,24 @@ boundary, so a crash shows a diagnostic instead of breaking the layer.
 
 Declare a `touch` option with values `off` / `feed` / `watch`. On Windows, when
 a widget whose `touch` is `feed` or `watch` is the topmost one under the cursor,
-left clicks on the wallpaper are forwarded to `window.__murmurPondTap(x, y)` in
-canvas logical coordinates.
+left clicks on the wallpaper are forwarded to it in canvas logical coordinates:
+the widget registers a handler under its own id as
+`window.__murmurDeskulptTaps[id] = (x, y) => { ... }` and deletes it on
+unmount, so several widgets can listen at once. The legacy
+`window.__murmurPondTap(x, y)` hook is still called for widgets that only know
+the old contract.
 
 ### Reference implementation
 
 `resources/widgets/starter/pond/` is a complete, real widget — manifest,
 options, bundling, i18n, time-based content, WebGL rendering, and sound. Its
 [README](./resources/widgets/starter/pond/README.md) walks through the design.
+
+`resources/widgets/starter/radio/` shows the other shape: manifest options,
+network requests with fallbacks, the lifecycle of a single `<audio>` element,
+sandbox-local caching, switching stations from a wallpaper tap, and one widget
+that flips between a WebGL dot globe and a compact card as its frame changes
+size.
 
 ---
 

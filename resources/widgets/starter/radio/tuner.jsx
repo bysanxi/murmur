@@ -36,6 +36,8 @@ export function Tuner({
   strings,
   onToggle,
   onPick,
+  onScrub,
+  onWake,
   keepRuler = false,
 }) {
   const hostRef = useRef(null);
@@ -115,7 +117,13 @@ export function Tuner({
   return (
     <div ref={hostRef} style={{ width: "100%" }}>
       {(!stripWide || keepRuler) && (
-        <Ruler stations={stations} cur={cur} onPick={onPick} />
+        <Ruler
+          stations={stations}
+          cur={cur}
+          onPick={onPick}
+          onScrub={onScrub}
+          onWake={onWake}
+        />
       )}
       {controls}
     </div>

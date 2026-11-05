@@ -12,6 +12,7 @@ export function CompactView({
   strings,
   station,
   statusLine,
+  cacheNote,
   live,
   cityLine,
   detail,
@@ -121,7 +122,7 @@ export function CompactView({
         color="gray"
         style={{ ...ELLIPSIS, position: "relative", zIndex: 1 }}
       >
-        {detail || statusLine}
+        {detail || cacheNote || statusLine}
       </Text>
     </Flex>
   );

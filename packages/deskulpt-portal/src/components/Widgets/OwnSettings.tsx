@@ -1,4 +1,5 @@
 import {
+  Button,
   Checkbox,
   Flex,
   IconButton,
@@ -18,6 +19,10 @@ import SectionTable from "../Settings/SectionTable";
 import CityField from "./CityField";
 import FontField from "./FontField";
 import { loadRadioCountryCounts } from "./radioCountryCounts";
+import {
+  type RadioCacheStatus,
+  loadRadioCacheStatus,
+} from "./radioCacheStatus";
 
 const styles = {
   table: css({
@@ -122,6 +127,139 @@ const CountrySelect = ({
   );
 };
 
+const formatCacheTime = (ts: number, language: string) => {
+  try {
+    return new Date(ts).toLocaleString(language === "en" ? "en" : "zh-CN", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+};
+
+const cacheCaption = (
+  enabled: boolean,
+  status: RadioCacheStatus,
+  language: string,
+) => {
+  const zh = language !== "en";
+  const n = status.count;
+  if (!enabled) {
+    return zh
+      ? "关掉会删掉已下载的列表，换台改走在线抽查。"
+      : "Off deletes the saved list; stations are then picked online.";
+  }
+  if (status.state === "downloading") {
+    return zh
+      ? n > 0
+        ? `正在下载… 已收到 ${n} 台`
+        : "正在下载电台列表…"
+      : n > 0
+        ? `Downloading… ${n} stations so far`
+        : "Downloading station list…";
+  }
+  if (status.state === "ready" && n > 0) {
+    const when = status.fetchedAt
+      ? formatCacheTime(status.fetchedAt, language)
+      : "";
+    return zh
+      ? when
+        ? `已缓存 ${n} 台 · ${when}`
+        : `已缓存 ${n} 台`
+      : when
+        ? `Cached ${n} stations · ${when}`
+        : `Cached ${n} stations`;
+  }
+  if (status.state === "stale" && n > 0) {
+    return zh
+      ? `这次没下完，仍用上次的 ${n} 台`
+      : `Refresh failed; still using ${n} saved stations`;
+  }
+  if (status.state === "error") {
+    return zh
+      ? "下载失败，换台先走在线抽查。"
+      : "Download failed; using online picks for now.";
+  }
+  return zh
+    ? "打开后会在后台下载完整列表，地球上的台会更多。"
+    : "When on, the full list downloads in the background so the globe can fill in.";
+};
+
+const RadioCacheControl = ({
+  id,
+  spec,
+  value,
+  disabled,
+  language,
+}: {
+  id: string;
+  spec: DeskulptWidgets.WidgetSettingSpec;
+  value: DeskulptWidgets.WidgetConfigValue | undefined;
+  disabled: boolean;
+  language: string;
+}) => {
+  const enabled = (value ?? spec.default) === true;
+  const [status, setStatus] = useState<RadioCacheStatus>({
+    state: "off",
+    count: 0,
+    fetchedAt: null,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    const tick = () => {
+      void loadRadioCacheStatus(id).then((next) => {
+        if (alive) setStatus(next);
+      });
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [id, enabled]);
+
+  const zh = language !== "en";
+  const busy = enabled && status.state === "downloading";
+
+  return (
+    <Flex direction="column" gap="1" width="100%" minWidth="0">
+      <Flex align="center" gap="2">
+        <Checkbox
+          size="1"
+          disabled={disabled}
+          checked={enabled}
+          onCheckedChange={(checked) =>
+            writeConfig(id, spec.key, checked === true)
+          }
+        />
+        <Button
+          size="1"
+          variant="soft"
+          color="gray"
+          disabled={disabled || !enabled || busy}
+          onClick={() => writeConfig(id, "cacheRefresh", Date.now())}
+        >
+          {busy
+            ? zh
+              ? "下载中"
+              : "Downloading"
+            : zh
+              ? "重新下载"
+              : "Redownload"}
+        </Button>
+      </Flex>
+      <Text size="1" color="gray" style={{ lineHeight: 1.35 }}>
+        {cacheCaption(enabled, status, language)}
+      </Text>
+    </Flex>
+  );
+};
+
 const OwnControl = ({
   id,
   spec,
@@ -138,6 +276,17 @@ const OwnControl = ({
   const current = value ?? spec.default;
 
   if (spec.type === "bool") {
+    if (spec.key === "cacheCatalog") {
+      return (
+        <RadioCacheControl
+          id={id}
+          spec={spec}
+          value={value}
+          disabled={disabled}
+          language={language}
+        />
+      );
+    }
     return (
       <Checkbox
         size="1"

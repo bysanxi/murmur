@@ -59,6 +59,7 @@ export function GlobeView({
   strings,
   station,
   statusLine,
+  cacheNote,
   live,
   place,
   time,
@@ -75,13 +76,18 @@ export function GlobeView({
   onSurfacePointerDown,
   onToggle,
   onPick,
+  onSight,
+  onScrub,
+  onWake,
 }) {
   const hostRef = useRef(null);
   const globeRef = useRef(null);
   const tapRef = useRef(null);
   const levelsRef = useRef(getAudioLevels);
+  const sightRef = useRef(onSight);
   const [compact, setCompact] = useState(false);
   levelsRef.current = getAudioLevels;
+  sightRef.current = onSight;
 
   useEffect(() => {
     if (!showGlobe) {
@@ -96,6 +102,8 @@ export function GlobeView({
     globeRef.current?.setLevelProvider(
       () => levelsRef.current?.() ?? { level: 0, bass: 0 },
     );
+    // Direct frame-to-player wire for the tuning bed; no state update.
+    globeRef.current?.setSightListener((info) => sightRef.current?.(info));
     const sync = () => setCompact((el.clientWidth ?? 0) < 560);
     sync();
     const ro = new ResizeObserver(sync);
@@ -143,6 +151,7 @@ export function GlobeView({
   // canvas handles the drag, so this only looks at how far the hand went.
   const onGlobePointerDown = (event) => {
     if (event.button !== 0) return;
+    onWake?.();
     tapRef.current = { x: event.clientX, y: event.clientY };
   };
   const onGlobePointerUp = (event) => {
@@ -191,7 +200,7 @@ export function GlobeView({
     globeRef.current?.setRimBoost(rimBoost);
   }, [rimBoost]);
 
-  const statusText = [live ? "ON AIR" : statusLine, place, time]
+  const statusText = [live ? "ON AIR" : statusLine, cacheNote, place, time]
     .filter(Boolean)
     .join(" · ");
 
@@ -322,6 +331,8 @@ export function GlobeView({
           strings={strings}
           onToggle={onToggle}
           onPick={pickExplicit}
+          onScrub={onScrub}
+          onWake={onWake}
           keepRuler={!showMeta}
         />
       </Flex>

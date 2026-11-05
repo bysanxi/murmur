@@ -1,8 +1,8 @@
 // Approximate coordinates when Radio Browser has no geo_lat/geo_long.
-// Most Chinese (and many other) stations ship without coordinates, so the
-// globe would otherwise show almost nothing over those regions even though
-// the catalog is full. Province / country centroids plus a tiny
-// deterministic jitter turn those into a readable cloud of pins.
+// Match a city in the station name first (roamdial sits pins on real
+// cities). Province / country centroids are the last resort.
+
+import { cityCoordsOf } from "./geo-cities.js";
 
 // Province capitals. Keys are lowercased; Radio Browser often uses
 // Wade-Giles (Kwangtung) or older postal spellings alongside pinyin.
@@ -200,7 +200,7 @@ function hash01(text) {
   return (h >>> 0) / 4294967296;
 }
 
-function jitter(seed, lat, lon, spread = 0.55) {
+function jitter(seed, lat, lon, spread) {
   const a = hash01(`${seed}:lat`);
   const b = hash01(`${seed}:lon`);
   return [lat + (a - 0.5) * 2 * spread, lon + (b - 0.5) * 2 * spread];
@@ -216,15 +216,24 @@ function stateBase(countryCode, region) {
   return null;
 }
 
-/// Fill missing coordinates from province / country centroids. Real
-/// Radio Browser coords are left untouched.
-export function resolveCoords({ uuid, countryCode, region, lat, lon }) {
+/// Fill missing coordinates. Real Radio Browser coords are left
+/// untouched. A city hit is treated as a true pin (same city stacks
+/// dim via aDen instead of being fanned into a disk).
+export function resolveCoords({ uuid, countryCode, region, name, lat, lon }) {
   if (Number.isFinite(lat) && Number.isFinite(lon)) {
     return { lat, lon, approx: false };
   }
   const code = String(countryCode || "").toUpperCase();
-  const base = stateBase(code, region) || COUNTRY[code] || null;
+  const seed = uuid || `${code}|${region}|${name}`;
+  const city = cityCoordsOf(name, region);
+  if (city) {
+    const [jlat, jlon] = jitter(seed, city[0], city[1], 0.04);
+    return { lat: jlat, lon: jlon, approx: false };
+  }
+  const province = stateBase(code, region);
+  const base = province || COUNTRY[code] || null;
   if (!base) return { lat: null, lon: null, approx: false };
-  const [jlat, jlon] = jitter(uuid || `${code}|${region}`, base[0], base[1]);
+  // Centidegree-scale noise only — a wide lat/lon box reads as streaks.
+  const [jlat, jlon] = jitter(seed, base[0], base[1], 0.04);
   return { lat: jlat, lon: jlon, approx: true };
 }

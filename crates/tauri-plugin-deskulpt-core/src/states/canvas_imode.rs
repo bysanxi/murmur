@@ -42,8 +42,6 @@ struct CanvasImodeState {
 
 /// Whether the global mousemove listener is enabled.
 static LISTENING_MOUSEMOVE: AtomicBool = AtomicBool::new(false);
-/// Last click-through state applied by the listener.
-static CURSOR_IGNORED: AtomicBool = AtomicBool::new(true);
 
 /// Extension trait for operations on canvas interaction mode.
 pub trait CanvasImodeStateExt<R: Runtime>: Manager<R> + SettingsExt<R> {
@@ -78,10 +76,13 @@ pub trait CanvasImodeStateExt<R: Runtime>: Manager<R> + SettingsExt<R> {
             }
         });
 
-        // Sink stays click-through. Float and auto listen so a miss can fall
-        // through. Wallpaper taps are forwarded on their own hook.
-        let imode = self.settings().read().canvas_imode.clone();
-        LISTENING_MOUSEMOVE.store(imode != CanvasImode::Sink, Ordering::Release);
+        // Same as original Deskulpt: only auto mode hit-tests on the mouse.
+        // Float captures the whole canvas. Sink is click-through (and, on
+        // Windows, embedded behind the icons). Wallpaper taps stay on their
+        // own hook.
+        if self.settings().read().canvas_imode == CanvasImode::Auto {
+            LISTENING_MOUSEMOVE.store(true, Ordering::Release);
+        }
 
         #[cfg(windows)]
         {
@@ -196,35 +197,44 @@ fn on_new_canvas_imode<R: Runtime>(canvas: &WebviewWindow<R>, mode: &CanvasImode
             LISTENING_MOUSEMOVE.store(true, Ordering::Release);
             #[cfg(windows)]
             {
+                let restore = crate::window::desktop::is_embedded(canvas);
                 crate::window::desktop::apply(canvas, false)?;
-                restore_surface(canvas)?;
+                if restore {
+                    restore_surface(canvas)?;
+                    // Maximize can drop WS_EX_TRANSPARENT while tao still
+                    // thinks ignore is on. Re-write the flag after it lands.
+                    let later = canvas.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(Duration::from_millis(100));
+                        let window = later.clone();
+                        let _ = later.run_on_main_thread(move || {
+                            let _ = window.set_ignore_cursor_events(false);
+                            let _ = window.set_ignore_cursor_events(true);
+                        });
+                    });
+                } else {
+                    canvas.set_ignore_cursor_events(true)?;
+                }
             }
-        },
-        CanvasImode::Sink => {
-            let state = canvas.state::<CanvasImodeState>();
-            let _guard = state.lock.write();
-            LISTENING_MOUSEMOVE.store(false, Ordering::Release);
-            CURSOR_IGNORED.store(true, Ordering::Release);
+            #[cfg(not(windows))]
             canvas.set_ignore_cursor_events(true)?;
-            #[cfg(windows)]
-            crate::window::desktop::apply(canvas, true)?;
         },
-        CanvasImode::Float => {
+        CanvasImode::Sink | CanvasImode::Float => {
             // Set the flag with write lock acquired to avoid racing with the
             // mousemove hook on setting `ignore_cursor_events`
             let state = canvas.state::<CanvasImodeState>();
             let _guard = state.lock.write();
-            // A miss falls through. The fullscreen wallpaper stays
-            // click-through; its taps arrive on the click hook.
-            LISTENING_MOUSEMOVE.store(true, Ordering::Release);
-            CURSOR_IGNORED.store(true, Ordering::Release);
+            LISTENING_MOUSEMOVE.store(false, Ordering::Release);
+            let sink = *mode == CanvasImode::Sink;
+            canvas.set_ignore_cursor_events(sink)?;
             #[cfg(windows)]
-            crate::window::desktop::apply(canvas, false)?;
-            canvas.set_ignore_cursor_events(true)?;
-            // Tauri rewrites the window style on the UI thread after this
-            // returns. Restore the maximized window after that rewrite.
+            crate::window::desktop::apply(canvas, sink)?;
+            // Leaving the desktop parent must restore a top-level maximized
+            // window. Float is not click-through, matching original Deskulpt.
             #[cfg(windows)]
-            restore_surface(canvas)?;
+            if !sink {
+                restore_surface(canvas)?;
+            }
         },
     }
 
@@ -258,6 +268,8 @@ fn restore_surface<R: Runtime>(canvas: &WebviewWindow<R>) -> Result<()> {
 /// it will check whether the mouse is over any widget in the canvas. If so, the
 /// canvas will accept cursor events; otherwise, it will ignore them.
 fn listen_to_mousemove<R: Runtime>(canvas: WebviewWindow<R>) -> Result<()> {
+    let mut is_cursor_ignored = true;
+
     global_mousemove::listen(move |event| {
         if !LISTENING_MOUSEMOVE.load(Ordering::Acquire) {
             return;
@@ -288,7 +300,7 @@ fn listen_to_mousemove<R: Runtime>(canvas: WebviewWindow<R>) -> Result<()> {
 
         // Avoid redundant calls by checking if the state has really changed
         let should_ignore_cursor = !mouse_over_widget;
-        if should_ignore_cursor != CURSOR_IGNORED.load(Ordering::Acquire) {
+        if should_ignore_cursor != is_cursor_ignored {
             // Check the flag with read lock acquired to avoid racing with the
             // writers on setting `ignore_cursor_events`
             let state = canvas.state::<CanvasImodeState>();
@@ -300,7 +312,7 @@ fn listen_to_mousemove<R: Runtime>(canvas: WebviewWindow<R>) -> Result<()> {
             if !LISTENING_MOUSEMOVE.load(Ordering::Acquire) {
                 return;
             }
-            CURSOR_IGNORED.store(should_ignore_cursor, Ordering::Release);
+            is_cursor_ignored = should_ignore_cursor;
             if let Err(e) = canvas.set_ignore_cursor_events(should_ignore_cursor) {
                 eprintln!("Failed to set cursor events state: {e}");
             }

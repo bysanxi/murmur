@@ -8,6 +8,8 @@ import { useStationMarkers } from "./markers.js";
 import {
   STRINGS,
   cacheCatalogOf,
+  cacheNoteOf,
+  cacheRefreshOf,
   coordOf,
   describe,
   filterOf,
@@ -21,6 +23,8 @@ import {
   statusTextOf,
   subscribeLanguage,
   touchOf,
+  tuningNoiseLevelOf,
+  tuningNoiseOf,
   volumeOf,
 } from "./format.js";
 
@@ -58,7 +62,7 @@ function Radio({ config, id, width, height }) {
   const feedRef = useRef([]);
   const skipRef = useRef(0);
   const lastTapRef = useRef(0);
-  const clearHandledRef = useRef("keep");
+  const refreshHandledRef = useRef(null);
   const configRef = useRef(config);
   configRef.current = config;
   // Switching is a promise, so a fresh definition each render still has to
@@ -66,6 +70,15 @@ function Radio({ config, id, width, height }) {
   const playNextRef = useRef(async () => {});
   const playPickRef = useRef(async () => {});
   const handleTapRef = useRef(() => {});
+  // Globe and ruler talk to the player through stable refs, never state.
+  const sightRef = useRef(null);
+  const scrubRef = useRef(null);
+  const wakeRef = useRef(null);
+  if (!sightRef.current) {
+    sightRef.current = (info) => playerRef.current?.sight(info);
+    scrubRef.current = (info) => playerRef.current?.scrub(info);
+    wakeRef.current = () => playerRef.current?.wake();
+  }
 
   const mode = modeOf(config);
   const card = mode === "card";
@@ -100,6 +113,7 @@ function Radio({ config, id, width, height }) {
     const next = feedRef.current.shift();
     setUpcoming(feedRef.current.slice(0, FEED_SIZE));
     if (!next) {
+      player.stop();
       setStatus("silent");
       return;
     }
@@ -154,6 +168,7 @@ function Radio({ config, id, width, height }) {
       onDead: () => {
         skipRef.current += 1;
         if (skipRef.current > MAX_SKIP) {
+          player.stop();
           setStatus("silent");
           return;
         }
@@ -201,15 +216,26 @@ function Radio({ config, id, width, height }) {
     playerRef.current?.setVolume(volumeOf(configRef.current));
   }, [config?.volume]);
 
-  // Local catalog cache: turning the setting on pulls the playable
-  // directory into the widget sandbox; turning it off (or picking clear)
-  // deletes that file. Stream audio still needs the network.
+  useEffect(() => {
+    playerRef.current?.setTuning({
+      enabled: tuningNoiseOf(configRef.current),
+      level: tuningNoiseLevelOf(configRef.current),
+    });
+  }, [config?.tuningNoise, config?.tuningNoiseLevel]);
+
+  // Local catalog: on downloads the directory; off deletes it. A bump of
+  // cacheRefresh (the settings "Redownload" button) pulls a fresh copy
+  // without turning the switch off. Stream audio still needs the network.
   useEffect(() => {
     const enabled = cacheCatalogOf(configRef.current);
-    const clearAsked = config?.cacheClear === "clear";
-    const force = clearAsked && clearHandledRef.current !== "clear";
-    if (clearAsked) clearHandledRef.current = "clear";
-    else clearHandledRef.current = config?.cacheClear || "keep";
+    const refreshAt = cacheRefreshOf(configRef.current);
+    let force = false;
+    if (refreshHandledRef.current === null) {
+      refreshHandledRef.current = refreshAt;
+    } else if (refreshAt !== refreshHandledRef.current) {
+      refreshHandledRef.current = refreshAt;
+      force = refreshAt > 0;
+    }
 
     let alive = true;
     const strings = STRINGS[readLanguage()] ?? STRINGS["zh-CN"];
@@ -223,26 +249,23 @@ function Radio({ config, id, width, height }) {
           setCacheNote("");
           return;
         }
-        if (progress.ready) {
-          setCacheNote(
-            progress.count > 0 ? `${strings.cached} · ${progress.count}` : "",
-          );
+        const note = cacheNoteOf(progress, strings);
+        setCacheNote(note);
+        if (progress.ready && note) {
           window.setTimeout(() => {
             if (alive) setCacheNote("");
-          }, 4000);
-          return;
+          }, 8000);
         }
-        setCacheNote(
-          progress.count > 0
-            ? `${strings.caching} ${progress.count}`
-            : strings.caching,
-        );
       },
     }).then((result) => {
       if (!alive) return;
       if (!enabled || result.status === "cleared") {
         setCacheNote("");
         setCacheEpoch((n) => n + 1);
+        return;
+      }
+      if (result.status === "error") {
+        setCacheNote(cacheNoteOf({ error: true }, strings));
         return;
       }
       // A freshly ready cache should reshape the queue so the next
@@ -260,7 +283,7 @@ function Radio({ config, id, width, height }) {
     return () => {
       alive = false;
     };
-  }, [config?.cacheCatalog, config?.cacheClear]);
+  }, [config?.cacheCatalog, config?.cacheRefresh]);
 
   // Auto-rotate: wander on a timer while the sound is actually flowing.
   const playing = status === "playing";
@@ -303,11 +326,7 @@ function Radio({ config, id, width, height }) {
 
   const strings = STRINGS[language] ?? STRINGS["zh-CN"];
   const live = status === "playing";
-  const baseStatus = statusTextOf(status, strings);
-  const statusLine =
-    cacheNote && (status === "tuning" || status === "silent" || !baseStatus)
-      ? cacheNote
-      : baseStatus || cacheNote;
+  const statusLine = statusTextOf(status, strings);
   const place = placeOf(station, geo);
   const time = localTimeOf(geo?.tz, now);
   const cityLine = place && time ? `${place} · ${time}` : place || time;
@@ -341,6 +360,7 @@ function Radio({ config, id, width, height }) {
         strings={strings}
         station={station}
         statusLine={statusLine}
+        cacheNote={cacheNote}
         live={live}
         place={place}
         time={time}
@@ -359,6 +379,9 @@ function Radio({ config, id, width, height }) {
         onSurfacePointerDown={onSurfacePointerDown}
         onToggle={onToggle}
         onPick={playPickRef.current}
+        onSight={sightRef.current}
+        onScrub={scrubRef.current}
+        onWake={wakeRef.current}
       />
     );
   }
@@ -370,6 +393,7 @@ function Radio({ config, id, width, height }) {
       strings={strings}
       station={station}
       statusLine={statusLine}
+      cacheNote={cacheNote}
       live={live}
       cityLine={cityLine}
       detail={detail}

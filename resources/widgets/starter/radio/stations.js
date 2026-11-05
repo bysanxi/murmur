@@ -31,9 +31,10 @@ const GEO_LIMIT = 500;
 const GEO_CACHE_LIMIT = 8000;
 const PAGE = 1000;
 const CACHE_PATH = "stations-cache.json";
+const STATUS_PATH = "cache-status.json";
 // Bump when the cached shape or inclusion rules change so an old file
 // (e.g. geo-only, which skipped most Chinese stations) is pulled again.
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 4;
 // Directory entries go stale as streams die; a week is long enough to be
 // useful offline without clinging to dead URLs for months.
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -42,6 +43,7 @@ let preferCache = false;
 let memoryCache = null;
 let cachePromise = null;
 let syncChain = Promise.resolve();
+let statusChain = Promise.resolve();
 let downloadToken = 0;
 
 function shuffled(list) {
@@ -87,6 +89,7 @@ function normalize(raw, mirror) {
     uuid,
     countryCode,
     region,
+    name: String(raw.name || "").trim(),
     lat: Number.isFinite(raw.geo_lat) ? raw.geo_lat : null,
     lon: Number.isFinite(raw.geo_long) ? raw.geo_long : null,
   });
@@ -195,12 +198,24 @@ function saveStationCache(cache) {
   return syncChain;
 }
 
+function writeCacheStatus(status) {
+  const body = JSON.stringify({
+    state: status.state,
+    count: status.count || 0,
+    fetchedAt: status.fetchedAt || null,
+  });
+  statusChain = statusChain.then(() =>
+    apis.fs.writeFile({ path: STATUS_PATH, content: body }).catch(() => {}),
+  );
+}
+
 /// Drop the on-disk catalog and the in-memory copy.
 export async function clearStationCache() {
   downloadToken += 1;
   preferCache = false;
   memoryCache = null;
   cachePromise = Promise.resolve(null);
+  writeCacheStatus({ state: "off", count: 0, fetchedAt: null });
   syncChain = syncChain.then(() =>
     apis.fs.removeFile({ path: CACHE_PATH }).catch(() => {}),
   );
@@ -213,7 +228,9 @@ async function filteredFromCache(
 ) {
   if (!preferCache) return null;
   const cache = await loadStationCache();
-  if (!isFresh(cache)) return null;
+  // A version bump still has the previous catalog; keep painting those
+  // pins while the refresh runs instead of dropping to a handful.
+  if (!cache?.stations?.length) return null;
   let list = cache.stations.filter((station) => matchesFilter(station, filter));
   if (locatedOnly) list = list.filter(located);
   if (list.length === 0) return null;
@@ -297,18 +314,41 @@ export async function syncStationCache({
   preferCache = true;
   const existing = await loadStationCache();
   if (!force && isFresh(existing)) {
+    writeCacheStatus({
+      state: "ready",
+      count: existing.stations.length,
+      fetchedAt: existing.fetchedAt,
+    });
     onProgress?.({ count: existing.stations.length, ready: true });
     return { status: "ready", count: existing.stations.length };
   }
 
   const token = ++downloadToken;
-  onProgress?.({ count: existing?.stations?.length || 0, ready: false });
+  const known = existing?.stations?.length || 0;
+  writeCacheStatus({
+    state: "downloading",
+    count: known,
+    fetchedAt: existing?.fetchedAt || null,
+  });
+  onProgress?.({ count: known, ready: false });
   try {
-    const next = await downloadCatalog(onProgress, token);
+    const next = await downloadCatalog((progress) => {
+      writeCacheStatus({
+        state: "downloading",
+        count: progress.count || 0,
+        fetchedAt: existing?.fetchedAt || null,
+      });
+      onProgress?.(progress);
+    }, token);
     if (!next || token !== downloadToken) {
       return { status: "aborted", count: 0 };
     }
     await saveStationCache(next);
+    writeCacheStatus({
+      state: "ready",
+      count: next.stations.length,
+      fetchedAt: next.fetchedAt,
+    });
     onProgress?.({ count: next.stations.length, ready: true });
     return { status: "ready", count: next.stations.length };
   } catch {
@@ -316,11 +356,21 @@ export async function syncStationCache({
     // failed refresh.
     if (existing?.stations?.length) {
       preferCache = true;
-      onProgress?.({ count: existing.stations.length, ready: true });
+      writeCacheStatus({
+        state: "stale",
+        count: existing.stations.length,
+        fetchedAt: existing.fetchedAt,
+      });
+      onProgress?.({
+        count: existing.stations.length,
+        ready: true,
+        stale: true,
+      });
       return { status: "stale", count: existing.stations.length };
     }
     preferCache = false;
-    onProgress?.({ count: 0, ready: false });
+    writeCacheStatus({ state: "error", count: 0, fetchedAt: null });
+    onProgress?.({ count: 0, ready: false, error: true });
     return { status: "error", count: 0 };
   }
 }

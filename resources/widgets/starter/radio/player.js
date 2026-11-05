@@ -5,12 +5,19 @@
 // plenty of directory entries point at servers that went away.
 //
 // VU follow: route through the local CORS proxy (127.0.0.1:17865), then
-// createMediaElementSource → AnalyserNode → destination. captureStream
-// cannot drive the meter; AnalyserNode + getByteFrequencyData is required.
-// crossOrigin must be set before src. AudioContext must be running before
-// MediaElementSource is created, or the webview goes silent.
+// createMediaElementSource → streamGain → AnalyserNode → destination.
+// captureStream cannot drive the meter; AnalyserNode + getByteFrequencyData
+// is required. crossOrigin must be set before src. AudioContext must be
+// running before MediaElementSource is created, or the webview goes silent.
+//
+// The tuning bed rides the same context but its own gain bus, so dragging a
+// dial can duck the stream without the noise ever reaching the analyser.
+
+import { createTuning } from "./tuning.js";
 
 const CONNECT_MS = 12_000;
+// The stream is pulled down to this while the hand is on the dial.
+const DUCK_LEVEL = 0.2;
 const PROXY_BASE = "http://127.0.0.1:17865/";
 
 function viaProxy(url) {
@@ -35,9 +42,20 @@ export function createPlayer(host) {
 
   let ctx = null;
   let mediaSource = null;
+  let streamGain = null;
   let analyser = null;
   let freq = null;
   let tapReady = false;
+  let tapPromise = null;
+  let lastTapTry = 0;
+  let ducked = 1;
+  let inputActive = false;
+
+  let tuning = null;
+  let tuningEnabled = true;
+  let tuningLevel = 0.5;
+  let pendingMode = "idle";
+
   let smoothLevel = 0;
   let smoothBass = 0;
   let peakLevel = 0;
@@ -62,32 +80,82 @@ export function createPlayer(host) {
     state = "idle";
     audio.pause();
     audio.removeAttribute("src");
+    // A dead stream is the start of a skip, not a fresh tune: the bed keeps
+    // whatever decay it already has instead of snapping back to full.
+    setTuneMode("connecting");
+    duckStream(1);
     if (dead) host.onDead?.(dead, reason);
   }
 
-  /// Ensure AudioContext is running, then wire MediaElementSource once.
-  async function ensureTap() {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return false;
-    try {
-      ctx = ctx || new AC();
-      if (ctx.state === "suspended") await ctx.resume();
-      if (ctx.state !== "running") return false;
-      if (!mediaSource) {
-        mediaSource = ctx.createMediaElementSource(audio);
-        analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.65;
-        mediaSource.connect(analyser);
-        analyser.connect(ctx.destination);
-        freq = new Uint8Array(analyser.frequencyBinCount);
+  function setTuneMode(next) {
+    pendingMode = next;
+    tuning?.setMode(next);
+  }
+
+  function duckStream(target, tc = 0.22) {
+    if (!streamGain || !ctx) return;
+    if (Math.abs(target - ducked) < 0.01) return;
+    ducked = target;
+    streamGain.gain.setTargetAtTime(target, ctx.currentTime, tc);
+  }
+
+  function restoreDuck() {
+    duckStream(inputActive && canTune() ? DUCK_LEVEL : 1);
+  }
+
+  // Paused and blocked stay silent even if the globe or ruler is moving.
+  function canTune() {
+    return tuningEnabled && state !== "paused" && state !== "blocked";
+  }
+
+  // A drag is itself a gesture, so it can wake a context that autoplay left
+  // suspended. The throttle keeps a blocked webview from being probed every
+  // frame.
+  function wakeTap() {
+    const now = performance.now();
+    if (tapPromise || now - lastTapTry < 400) return;
+    lastTapTry = now;
+    void ensureTap();
+  }
+
+  /// Ensure AudioContext is running, then wire the graph once.
+  function ensureTap() {
+    if (tapPromise) return tapPromise;
+    tapPromise = (async () => {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      try {
+        ctx = ctx || new AC();
+        if (ctx.state === "suspended") await ctx.resume();
+        if (ctx.state !== "running") return false;
+        if (!mediaSource) {
+          mediaSource = ctx.createMediaElementSource(audio);
+          streamGain = ctx.createGain();
+          streamGain.gain.value = 1;
+          analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.65;
+          mediaSource.connect(streamGain);
+          streamGain.connect(analyser);
+          analyser.connect(ctx.destination);
+          freq = new Uint8Array(analyser.frequencyBinCount);
+        }
+        if (!tuning) {
+          tuning = createTuning(ctx, { volume });
+          tuning?.setLevel(tuningLevel);
+          tuning?.setEnabled(tuningEnabled);
+          tuning?.setMode(pendingMode);
+        }
+        tapReady = true;
+        return true;
+      } catch {
+        tapReady = false;
+        return false;
       }
-      tapReady = true;
-      return true;
-    } catch {
-      tapReady = false;
-      return false;
-    }
+    })().finally(() => {
+      tapPromise = null;
+    });
+    return tapPromise;
   }
 
   function playUrl(url) {
@@ -105,9 +173,16 @@ export function createPlayer(host) {
   audio.addEventListener("playing", () => {
     clearConnect();
     emit("playing");
+    setTuneMode("idle");
+    restoreDuck();
   });
   audio.addEventListener("pause", () => {
-    if (station && connectTimer === 0 && !audio.ended) emit("paused");
+    if (station && connectTimer === 0 && !audio.ended) {
+      inputActive = false;
+      emit("paused");
+      setTuneMode("paused");
+      duckStream(1);
+    }
   });
   audio.addEventListener("error", () => {
     if (!station) return;
@@ -134,6 +209,46 @@ export function createPlayer(host) {
     setVolume(next) {
       volume = Math.min(1, Math.max(0, Number(next) || 0));
       audio.volume = volume;
+      tuning?.setVolume(volume);
+    },
+    /// A pointer-down is the cleanest place to resume a suspended context;
+    /// the frame loop that follows may not carry user activation.
+    wake() {
+      if (tuningEnabled) wakeTap();
+    },
+    /// Tuning-noise switches from the widget config.
+    setTuning(next = {}) {
+      tuningEnabled = next.enabled !== false;
+      const raw = Number(next.level);
+      if (Number.isFinite(raw)) tuningLevel = Math.min(1, Math.max(0, raw));
+      tuning?.setEnabled(tuningEnabled);
+      tuning?.setLevel(tuningLevel);
+      if (!tuningEnabled) {
+        inputActive = false;
+        duckStream(1);
+      }
+    },
+    /// Per-frame sight data from the globe, or nothing on the ruler.
+    sight(info = {}) {
+      inputActive = Boolean(info.dragging);
+      if (!canTune()) {
+        restoreDuck();
+        return;
+      }
+      if (info.dragging) wakeTap();
+      tuning?.sight(info);
+      restoreDuck();
+    },
+    /// Ruler scrub; `detent` fires once per station slot crossing.
+    scrub(info = {}) {
+      inputActive = Boolean(info.dragging);
+      if (!canTune()) {
+        restoreDuck();
+        return;
+      }
+      if (info.dragging) wakeTap();
+      tuning?.scrub(info);
+      restoreDuck();
     },
     play(next) {
       if (!next?.url) return;
@@ -142,7 +257,12 @@ export function createPlayer(host) {
       const mine = generation;
       station = next;
       useProxy = true;
+      // One chirp for a real switch; `lock()` itself ignores the connecting
+      // bed, so a rapid dead-stream chain does not chirp on every skip.
+      tuning?.lock();
       emit("connecting");
+      setTuneMode("connecting");
+      duckStream(1);
       connectTimer = setTimeout(() => {
         if (mine === generation && station) die("timeout");
       }, CONNECT_MS);
@@ -160,7 +280,10 @@ export function createPlayer(host) {
           if (mine !== generation || !station) return;
           if (error?.name === "NotAllowedError") {
             clearConnect();
+            inputActive = false;
             emit("blocked");
+            setTuneMode("paused");
+            duckStream(1);
             return;
           }
           // Proxy path failed — try raw URL (sound only, no VU).
@@ -173,7 +296,10 @@ export function createPlayer(host) {
               if (mine !== generation || !station) return;
               if (again?.name === "NotAllowedError") {
                 clearConnect();
+                inputActive = false;
                 emit("blocked");
+                setTuneMode("paused");
+                duckStream(1);
                 return;
               }
               die("error");
@@ -188,6 +314,8 @@ export function createPlayer(host) {
       if (!station) return;
       const mine = generation;
       clearConnect();
+      setTuneMode("connecting");
+      duckStream(1);
       connectTimer = setTimeout(() => {
         if (mine === generation && station) die("timeout");
       }, CONNECT_MS);
@@ -204,15 +332,21 @@ export function createPlayer(host) {
     },
     pause() {
       clearConnect();
+      inputActive = false;
       audio.pause();
+      setTuneMode("paused");
+      duckStream(1);
     },
     stop() {
       clearConnect();
+      inputActive = false;
       station = null;
       generation += 1;
       audio.pause();
       audio.removeAttribute("src");
       emit("idle");
+      setTuneMode("idle");
+      duckStream(1);
     },
     /// VU-style level/bass from AnalyserNode (0..1).
     levels() {
@@ -275,8 +409,15 @@ export function createPlayer(host) {
       generation += 1;
       audio.pause();
       audio.removeAttribute("src");
+      tuning?.destroy();
+      tuning = null;
       try {
         mediaSource?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      try {
+        streamGain?.disconnect();
       } catch {
         /* ignore */
       }
@@ -286,9 +427,13 @@ export function createPlayer(host) {
         /* ignore */
       }
       mediaSource = null;
+      streamGain = null;
       analyser = null;
       freq = null;
       tapReady = false;
+      ducked = 1;
+      inputActive = false;
+      pendingMode = "idle";
       void ctx?.close();
       ctx = null;
     },

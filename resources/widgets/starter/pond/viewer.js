@@ -26,7 +26,7 @@ const reducedMotion = () =>
   typeof matchMedia === "function" &&
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export function mountPond(host, config) {
+export function mountPond(host, config, id) {
   const { PondCore, PondGL, PondScene, PondStyles } = window;
   const { createFish, randomSeed, createSilverCarpShoal, clamp } = PondCore;
 
@@ -313,7 +313,11 @@ export function mountPond(host, config) {
     tapFrom(x, y);
   }
   host.addEventListener("pointerdown", onPointerDown);
-  window.__murmurPondTap = onWallpaperTap;
+  // Wallpaper taps are delivered per widget id, so the pond and any other
+  // tap-hungry widget can listen at the same time. The legacy global stays
+  // untouched for widgets that still read the old contract.
+  const taps = (window.__murmurDeskulptTaps ??= {});
+  taps[id] = onWallpaperTap;
 
   const pace = (speed) =>
     settings.quality === "eco" ? Math.min(speed, 0.45) : speed;
@@ -406,6 +410,8 @@ export function mountPond(host, config) {
       cancelAnimationFrame(frameId);
       observer.disconnect();
       host.removeEventListener("pointerdown", onPointerDown);
+      if (window.__murmurDeskulptTaps?.[id] === onWallpaperTap)
+        delete window.__murmurDeskulptTaps[id];
       if (window.__murmurPondTap === onWallpaperTap)
         window.__murmurPondTap = null;
       cityClient.stop();

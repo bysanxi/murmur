@@ -86,6 +86,17 @@ unsafe fn set_long(hwnd: isize, index: i32, value: u32) {
     unsafe { SetWindowLongW(hwnd, index, value as i32) };
 }
 
+/// Whether the canvas is currently parented to the desktop layer.
+pub fn is_embedded<R: Runtime>(window: &WebviewWindow<R>) -> bool {
+    if EMBED.load(Ordering::Acquire) {
+        return true;
+    }
+    window
+        .hwnd()
+        .ok()
+        .is_some_and(|hwnd| unsafe { GetParent(hwnd.0 as isize) } != 0)
+}
+
 /// Sink mode keeps the canvas behind the icons. Any other mode returns it to a
 /// normal top-level window.
 pub fn apply<R: Runtime>(window: &WebviewWindow<R>, embed: bool) -> Result<()> {

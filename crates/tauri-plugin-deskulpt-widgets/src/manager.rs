@@ -230,7 +230,7 @@ impl<R: Runtime> WidgetsManager<R> {
         // Hit-testing reads pixel geometry, so it needs the same conversion the
         // read/write paths do; without it a still-pending catalog would be
         // tested against unconverted defaults.
-        self.ensure_geometry_ready().ok()?;
+        let canvas = self.ensure_geometry_ready().ok()?;
         let catalog = self.catalog.try_read()?;
         // A fullscreen widget stays click-through unless it asked to take taps
         // (feed or watch). Other widgets include a margin outside the box: the
@@ -239,9 +239,18 @@ impl<R: Runtime> WidgetsManager<R> {
         const RESIZE_MARGIN: f64 = 16.0;
         let covers = catalog.0.values().any(|widget| {
             let settings = &widget.settings;
+            if !settings.is_loaded {
+                return false;
+            }
             // A fullscreen wallpaper stays click-through. Taps are delivered
             // separately so the desktop keeps its own menu.
             if settings.fullscreen {
+                return false;
+            }
+            // A frame that fills the canvas is wallpaper, not a hit target.
+            if settings.width as f64 >= canvas.width * 0.9
+                && settings.height as f64 >= canvas.height * 0.9
+            {
                 return false;
             }
             let left = settings.x as f64 - RESIZE_MARGIN;

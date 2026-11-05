@@ -33,7 +33,9 @@ function readGroups(text) {
     sentences = [];
     groups.push(sentences);
   };
-  for (const raw of String(text).replace(/^\uFEFF/, "").split(/\r?\n/)) {
+  for (const raw of String(text)
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) {
       if (parts.length > 0) flush();
@@ -132,10 +134,7 @@ function gust(index, count, wind) {
   return {
     x: Math.round(wind.x * travel + wind.px * fan),
     y: Math.round(wind.y * travel + wind.py * fan),
-    turn:
-      wind.turn *
-      (index % 2 === 0 ? 1 : -1) *
-      (180 + Math.abs(side) * 220),
+    turn: wind.turn * (index % 2 === 0 ? 1 : -1) * (180 + Math.abs(side) * 220),
   };
 }
 
@@ -391,7 +390,9 @@ export default function Denghua({ config, width, height }) {
   return (
     <Flex
       align="center"
-      justify={align === "left" ? "start" : align === "right" ? "end" : "center"}
+      justify={
+        align === "left" ? "start" : align === "right" ? "end" : "center"
+      }
       width="100%"
       height="100%"
       style={{ overflow: "visible" }}

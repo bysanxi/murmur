@@ -3,9 +3,8 @@
 // or HTTPS change reshapes the set; a failure leaves the globe without
 // pins rather than without a radio.
 //
-// When the local catalog is enabled, wait for cacheEpoch to advance so
-// the first pin load already reads the sandbox file — otherwise a racing
-// online sample of a few hundred sticks on the globe until remount.
+// cacheEpoch still retriggers after a catalog refresh so new city
+// coords replace the previous pin set.
 
 import { useEffect, useRef, useState } from "@deskulpt-test/react";
 import { cacheCatalogOf, filterOf } from "./format.js";
@@ -19,9 +18,6 @@ export function useStationMarkers(big, config, cacheEpoch = 0) {
   const caching = cacheCatalogOf(config);
   useEffect(() => {
     if (!big) return;
-    // Epoch 0 means syncStationCache has not reported yet; keep the
-    // previous pins (or none) rather than painting a thin API sample.
-    if (caching && cacheEpoch === 0) return;
     let alive = true;
     void fetchGeoStations(filterOf(configRef.current)).then((list) => {
       if (alive && list) setMarkers(list);

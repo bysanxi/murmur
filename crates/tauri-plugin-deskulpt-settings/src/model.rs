@@ -41,8 +41,8 @@ pub enum CanvasImode {
     Sink,
     /// Float mode.
     ///
-    /// Widgets are interactable. Clicks that miss every widget pass through
-    /// to the desktop, the same way auto mode does.
+    /// The canvas is not click-through. Widgets are interactable. The desktop
+    /// is not interactable.
     Float,
 }
 

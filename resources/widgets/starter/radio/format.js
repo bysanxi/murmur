@@ -16,8 +16,11 @@ export const STRINGS = {
     locked: "已锁定",
     nearest: "附近 · {d} px",
     nearby: "{n} stations nearby",
-    caching: "正在缓存目录…",
-    cached: "目录已缓存",
+    caching: "正在下载电台列表…",
+    cachingCount: "正在下载电台列表 · {n}",
+    cached: "已缓存 {n} 台",
+    cacheError: "列表没下完，先用在线抽查",
+    cacheStale: "仍用上次的 {n} 台",
   },
   en: {
     tuning: "Tuning in…",
@@ -32,8 +35,11 @@ export const STRINGS = {
     locked: "Locked",
     nearest: "Nearest · {d} px",
     nearby: "{n} stations nearby",
-    caching: "Caching catalog…",
-    cached: "Catalog cached",
+    caching: "Downloading station list…",
+    cachingCount: "Downloading station list · {n}",
+    cached: "Cached {n} stations",
+    cacheError: "Download failed; using online picks",
+    cacheStale: "Still using {n} saved stations",
   },
 };
 
@@ -75,6 +81,28 @@ export function cacheCatalogOf(config) {
   return config?.cacheCatalog === true || config?.cacheCatalog === "true";
 }
 
+/// Bumped by the settings "Redownload" button; 0 means never asked.
+export function cacheRefreshOf(config) {
+  const value = Number(config?.cacheRefresh);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function cacheNoteOf(progress, strings) {
+  if (!progress) return "";
+  const n = String(progress.count || 0);
+  if (progress.error) return strings.cacheError;
+  if (progress.stale) {
+    return progress.count > 0
+      ? strings.cacheStale.replace("{n}", n)
+      : strings.cacheError;
+  }
+  if (progress.ready) {
+    return progress.count > 0 ? strings.cached.replace("{n}", n) : "";
+  }
+  if (progress.count > 0) return strings.cachingCount.replace("{n}", n);
+  return strings.caching;
+}
+
 export function touchOf(config) {
   return config?.touch === "feed" ? "feed" : "off";
 }
@@ -82,6 +110,21 @@ export function touchOf(config) {
 export function volumeOf(config) {
   const value = Number(config?.volume);
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.6;
+}
+
+/// Tuning noise is on unless explicitly switched off; older configs have no
+/// key and should still get the default.
+export function tuningNoiseOf(config) {
+  return (
+    config?.tuningNoise !== "off" &&
+    config?.tuningNoise !== false &&
+    config?.tuningNoise !== "false"
+  );
+}
+
+export function tuningNoiseLevelOf(config) {
+  const value = Number(config?.tuningNoiseLevel);
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.5;
 }
 
 export function rotateMinutes(config) {

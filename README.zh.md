@@ -86,7 +86,9 @@
   - **Float**——组件可交互，未命中处穿透到桌面
   - **Auto**——跟随指针，组件与桌面同时可用
 - Windows 上，当光标下最顶层组件声明了 `touch: feed | watch` 时，
-  壁纸上的左键点击会被转发给 `window.__murmurPondTap(x, y)`
+  壁纸上的左键点击会以画布逻辑坐标转发给该组件注册的
+  `window.__murmurDeskulptTaps[id](x, y)`；旧钩子
+  `window.__murmurPondTap(x, y)` 仍然同时调用，第三方组件无需改动
 
 ### 组件系统
 
@@ -142,6 +144,19 @@
 
 技术说明：[中文](./resources/widgets/starter/pond/README.zh.md) ·
 [English](./resources/widgets/starter/pond/README.md)
+
+`@murmur.denghua` —— **灯花**：一行自己会冒出来的小句子。
+
+`@murmur.radio` —— **电台**：随机收听世界各地的网络电台。电台目录来自
+[Radio Browser](https://www.radio-browser.info/)（仅取上次检查通过、
+HTTPS、浏览器可解码的流），地理与时区来自
+[GeoNames](https://www.geonames.org/)，结果缓存在组件沙箱内。组件随尺寸
+自适应两种形态：框体够大时是点阵地球（WebGL2 点云，陆地采样烘焙自
+Natural Earth）加台名、坐标、调谐条与播放控制；缩小时退回紧凑卡片，
+显示台名、城市与当地时间。地球上标出目录中所有带坐标的电台（针点与
+陆地圆点同大小，像星星一样各自闪烁），换台时视角平滑转到该台所在区
+域，选中的电台被瞄准环锁定、环边标注台名——默认静止不转，可在设置
+里开启缓慢漂移。点壁纸换台，坏流自动跳下一台。
 
 ---
 
@@ -428,13 +443,21 @@ export default function MyWidget({ id, x, y, width, height, config }) {
 
 声明一个取值为 `off` / `feed` / `watch` 的 `touch` 选项。Windows 上，当
 `touch` 为 `feed` 或 `watch` 的组件是光标下最顶层组件时，壁纸上的左键
-点击会以画布逻辑坐标转发给 `window.__murmurPondTap(x, y)`。
+点击会以画布逻辑坐标转发给它：组件在 `window.__murmurDeskulptTaps`
+注册表里用自己的组件 id 注册处理器，即
+`window.__murmurDeskulptTaps[id] = (x, y) => { ... }`，卸载时删掉即可，
+多个组件可以同时监听。旧钩子 `window.__murmurPondTap(x, y)` 仍会被调用，
+只认旧契约的组件不受影响。
 
 ### 参考实现
 
 `resources/widgets/starter/pond/` 是一个完整可用的真实组件 —— 清单、选项、
 打包、多语言、时段内容、WebGL 渲染与音效一应俱全。它的
 [README](./resources/widgets/starter/pond/README.zh.md) 详细说明了设计。
+
+`resources/widgets/starter/radio/` 演示了另一类组件：清单选项、网络请求与
+容错、单个 `<audio>` 的播放生命周期、组件沙箱内的缓存、壁纸点击换台，
+以及同一组件按框体尺寸切换 WebGL 点阵地球与紧凑卡片两种形态。
 
 ---
 

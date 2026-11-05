@@ -56,7 +56,8 @@ export function createGlobe(host) {
   const canvas = document.createElement("canvas");
   canvas.style.cssText =
     "position:absolute;inset:0;width:100%;height:100%;" +
-    "touch-action:none;cursor:grab;opacity:0;transition:opacity 700ms ease;";
+    "touch-action:none;-webkit-user-select:none;user-select:none;" +
+    "-webkit-user-drag:none;cursor:grab;opacity:0;transition:opacity 700ms ease;";
   host.append(canvas);
   const gl = canvas.getContext("webgl2", {
     alpha: true,
@@ -196,8 +197,14 @@ export function createGlobe(host) {
   let browseArmed = false; // only auto-tune after the user dragged the globe
   let holdUntil = 0; // ms timestamp: explicit pick owns the camera until then
   let dragMoved = false;
+  let dragAmount = 0; // rad accumulated since the last frame
+  let dragTouched = false; // any pointermove since press, however small
   let describeAim = null; // (hit) => { title, meta, hot }
   let onAim = null; // (station) => void
+  let sightListener = null; // ({ speed, dragging, settling }) => void
+  let sightActive = false; // only talk to the player while a drag is live
+  let settleNoise = false; // hold the bed through the sight's lock commit
+  let settleUntil = 0; // ms deadline so a stuck commit cannot hiss forever
 
   function cameraHeld() {
     return performance.now() < holdUntil;
@@ -219,8 +226,15 @@ export function createGlobe(host) {
 
   function onPointerDown(event) {
     if (event.button !== 0) return;
+    // Keep the webview from promoting the press into a native drag (which
+    // swaps the cursor for a no-drop sign and swallows pointermove).
+    event.preventDefault();
     dragging = true;
     dragMoved = false;
+    dragAmount = 0;
+    dragTouched = false;
+    settleNoise = false;
+    settleUntil = 0;
     aimIdle = 0;
     // Hand takes the camera; drop any queued look-at on the playing
     // station so a release cannot yank back to the ruler.
@@ -229,13 +243,18 @@ export function createGlobe(host) {
     pointerId = event.pointerId;
     lastX = event.clientX;
     lastY = event.clientY;
-    canvas.setPointerCapture(event.pointerId);
     canvas.style.cursor = "grabbing";
+    try {
+      canvas.setPointerCapture(event.pointerId);
+    } catch {
+      // Capture is an optimisation; the canvas still gets moves inside it.
+    }
   }
   function onPointerMove(event) {
     if (!dragging || event.pointerId !== pointerId) return;
     const dx = event.clientX - lastX;
     const dy = event.clientY - lastY;
+    if (dx || dy) dragTouched = true;
     if (!dragMoved && Math.hypot(dx, dy) > 4) {
       dragMoved = true;
       browseArmed = true;
@@ -245,6 +264,9 @@ export function createGlobe(host) {
     const spin = (DRAG_BASE * Math.max(eye - DRAG_SURFACE, 0.05)) / DRAG_REF;
     yaw += dx * spin;
     pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch + dy * spin));
+    // Radians moved since the last frame; pointer events can arrive faster
+    // than frames, so accumulate instead of sampling yaw after the fact.
+    dragAmount += (Math.abs(dx) + Math.abs(dy)) * spin;
     // Dragging sets the target too, so the view stays where it is left.
     targetYaw = yaw;
     targetPitch = pitch;
@@ -284,11 +306,27 @@ export function createGlobe(host) {
       const hit = sightHit();
       if (hit?.station && hit.dist < AIM_CLOSE) snapSightTo(hit.station);
       aimIdle = 0;
+      // The camera is about to ease onto the sight and auto-tune may take
+      // a few more frames; keep the bed under that gap instead of
+      // letting it fade the instant the hand lifts.
+      settleNoise = true;
+      settleUntil = performance.now() + 3000;
       return;
     }
     if (pending) {
       [targetYaw, targetPitch] = pending;
       pending = null;
+    }
+  }
+
+  // Audio must never be able to stop the render loop: a throwing listener
+  // would otherwise freeze the globe mid-drag.
+  function emitSight(info) {
+    if (!sightListener) return;
+    try {
+      sightListener(info);
+    } catch (error) {
+      console.error("radio: sight listener failed", error);
     }
   }
 
@@ -381,11 +419,23 @@ export function createGlobe(host) {
       holdCamera(HOLD_AIM_MS);
       onAim?.(hit.station);
     }
+    // The bed follows the commit, not the commit's network round-trip: it
+    // survives `browseArmed` going false and only drops once the sight has
+    // clearly settled away from any station (or back onto the one already
+    // on air, which never auto-tunes). The deadline is the final guard.
+    if (settleNoise) {
+      const same = close && hit?.station?.uuid === playing?.uuid;
+      if ((!close || same) && aimIdle > AIM_SETTLE + 0.8) {
+        settleNoise = false;
+      }
+    }
   }
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("dragstart", (event) => event.preventDefault());
+  canvas.addEventListener("selectstart", (event) => event.preventDefault());
 
   // Each wheel notch dollies the camera the same ratio in or out.
   function onWheel(event) {
@@ -408,6 +458,10 @@ export function createGlobe(host) {
       pitch += (targetPitch - pitch) * ease;
     }
     eye += (targetEye - eye) * ease;
+    // Tuning bed: speed is only read while a real drag is moving the world,
+    // so focus easing and auto-spin never make the radio hiss on their own.
+    const moved = dragAmount;
+    dragAmount = 0;
     // Fan a dense city into a spiral once the camera has settled close in;
     // zooming out eases the pins back onto the globe.
     pins.tickSpread(dt, {
@@ -453,6 +507,32 @@ export function createGlobe(host) {
     gl.bindVertexArray(null);
     if (offscreen) bloom.composite(now / 1000);
     updateAim(dt);
+    // The sight has just refreshed aimProgress, so this is the freshest
+    // proximity the tuning bed can get. Idle frames stay quiet, which also
+    // stops this listener from overwriting the ruler's scrub. Once the hand
+    // has moved at all, the bed stays awake (at its floor) until release;
+    // after release it keeps following the camera and the lock commit.
+    const active = dragging && dragTouched;
+    const settling = !dragging && settleNoise && now < settleUntil;
+    if (active) {
+      sightActive = true;
+      emitSight({
+        speed: Math.min(1, moved / Math.max(dt, 0.001) / 2.2),
+        dragging: true,
+        progress: aimProgress,
+      });
+    } else if (settling) {
+      sightActive = true;
+      emitSight({
+        speed: 0,
+        dragging: false,
+        settling: true,
+        progress: aimProgress,
+      });
+    } else if (sightActive) {
+      sightActive = false;
+      emitSight({ speed: 0, dragging: false, progress: 0 });
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -469,6 +549,7 @@ export function createGlobe(host) {
     setStation(station, lat, lon) {
       playing = station ?? null;
       aimArmed = station?.uuid ?? null;
+      settleNoise = false;
       // Playing station is the single source of truth: leave browse so
       // the sight cannot chain-lock a neighbour and yank the dial.
       browseArmed = false;
@@ -497,8 +578,13 @@ export function createGlobe(host) {
     setOnAim(fn) {
       onAim = fn;
     },
+    /// Per-frame drag telemetry for the tuning bed; no React state involved.
+    setSightListener(fn) {
+      sightListener = typeof fn === "function" ? fn : null;
+    },
     /// Dial, pin tap, skip, random: this is not a globe browse.
     noteExplicitTune(station) {
+      settleNoise = false;
       armExplicit(station);
     },
     /// The station whose pin sits under a screen point, or null.
@@ -552,6 +638,10 @@ export function createGlobe(host) {
     },
     destroy() {
       alive = false;
+      if (sightActive) {
+        sightActive = false;
+        emitSight({ speed: 0, dragging: false, progress: 0 });
+      }
       observer.disconnect();
       reticle.destroy();
       bloom?.destroy();

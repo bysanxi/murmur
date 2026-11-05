@@ -28,7 +28,7 @@ function jitter(a, b) {
   return Math.abs(Math.sin(a * 37 + b * 12.9898) * 43758.5453);
 }
 
-export function Ruler({ stations, cur, onPick }) {
+export function Ruler({ stations, cur, onPick, onScrub, onWake }) {
   const n = stations.length;
   const [win, setWin] = useState([0, 0]);
   const [dx, setDxState] = useState(0);
@@ -59,11 +59,24 @@ export function Ruler({ stations, cur, onPick }) {
   const onPointerDown = (e) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+    onWake?.();
     suppressRef.current = false;
     const startX = e.clientX;
     const base = dxRef.current;
     let moved = false;
+    let lastEmit = 0;
+    let lastMoveX = startX;
+    let lastMoveAt = performance.now();
+    // The slot under the pin at press time. A detent fires only when the
+    // nearest slot changes, never once per pixel.
+    let lastDetent = Math.round(cur - base / SLOT);
     setDragging(true);
+    const emitScrub = (speed, detent = false, proximity = 0) => {
+      const now = performance.now();
+      if (!detent && now - lastEmit < 33) return;
+      lastEmit = now;
+      onScrub?.({ dragging: true, speed, detent, proximity });
+    };
     const move = (ev) => {
       const d = ev.clientX - startX;
       if (Math.abs(d) > 4) moved = true;
@@ -72,6 +85,22 @@ export function Ruler({ stations, cur, onPick }) {
       const hi = cur * SLOT;
       const next = Math.min(Math.max(raw, lo), hi);
       setDx(next);
+      if (moved) {
+        const now = performance.now();
+        const dt = Math.max(8, now - lastMoveAt);
+        const speed = Math.min(1, Math.abs(ev.clientX - lastMoveX) / dt / 1.6);
+        lastMoveX = ev.clientX;
+        lastMoveAt = now;
+        const pos = cur - next / SLOT;
+        const nearest = Math.round(pos);
+        const detent = nearest !== lastDetent;
+        lastDetent = nearest;
+        // 1 when a station sits under the pin, 0 at the boundary between
+        // two stations. The bed is loudest at the boundary; the signal
+        // emerges as the pin settles onto a station.
+        const proximity = Math.max(0, 1 - Math.abs(pos - nearest) * 2);
+        emitScrub(speed, detent, proximity);
+      }
       // Near the edge of the mounted page: slide the window over and
       // mount the next one. Absolute slot positions mean nothing jumps.
       const middle = cur - next / SLOT;
@@ -93,6 +122,7 @@ export function Ruler({ stations, cur, onPick }) {
       window.removeEventListener("pointercancel", end);
       setDragging(false);
       suppressRef.current = moved;
+      if (moved) onScrub?.({ dragging: false, speed: 0, proximity: 0 });
       if (!moved) {
         setDx(0);
         return;
