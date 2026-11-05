@@ -7,7 +7,7 @@
 import { landPositions } from "./land-data.js";
 import { FOV, FRAG, VERT, link, makeProjection, rotation } from "./globe-gl.js";
 import { createBloom } from "./bloom.js";
-import { createPins } from "./pins.js";
+import { FACE_MIN, createPins } from "./pins.js";
 import { precOf } from "./ring-spread.js";
 import { createReticle } from "./reticle.js";
 import { coordOf } from "./format.js";
@@ -196,6 +196,7 @@ export function createGlobe(host) {
   let aimIdle = 0; // seconds since the last drag
   let aimArmed = null; // uuid already fired for this settle
   let browseArmed = false; // only auto-tune after the user dragged the globe
+  let detached = false; // drag owns the camera until an explicit tune
   let holdUntil = 0; // ms timestamp: explicit pick owns the camera until then
   let dragMoved = false;
   let dragAmount = 0; // rad accumulated since the last frame
@@ -220,6 +221,7 @@ export function createGlobe(host) {
   // neighbours until the hold expires. Auto-aim is browse-only.
   function armExplicit(station) {
     browseArmed = false;
+    detached = false;
     pending = null;
     aimArmed = station?.uuid ?? null;
     holdCamera(HOLD_EXPLICIT_MS);
@@ -259,6 +261,7 @@ export function createGlobe(host) {
     if (!dragMoved && Math.hypot(dx, dy) > 4) {
       dragMoved = true;
       browseArmed = true;
+      detached = true;
       aimArmed = null;
     }
     // Closer camera → smaller rad/px, matching screen motion to the pins.
@@ -305,7 +308,16 @@ export function createGlobe(host) {
     if (dragMoved && browseArmed) {
       pending = null;
       const hit = sightHit();
-      if (hit?.station && hit.dist < AIM_CLOSE) snapSightTo(hit.station);
+      // Park on a pin the sight actually landed on. The station already
+      // on air is not one of those: snapping to it pulls the globe back
+      // from empty ocean onto the ruler.
+      if (
+        hit?.station &&
+        hit.dist < AIM_CLOSE &&
+        hit.station.uuid !== playing?.uuid
+      ) {
+        snapSightTo(hit.station);
+      }
       aimIdle = 0;
       // The camera is about to ease onto the sight and auto-tune may take
       // a few more frames; keep the bed under that gap instead of
@@ -314,7 +326,9 @@ export function createGlobe(host) {
       settleUntil = performance.now() + 3000;
       return;
     }
-    if (pending) {
+    // A click after a browse must not play a look-at that was queued
+    // for the ruler's station.
+    if (pending && !detached) {
       [targetYaw, targetPitch] = pending;
       pending = null;
     }
@@ -344,7 +358,7 @@ export function createGlobe(host) {
         stationPos[1],
         stationPos[2],
       );
-      if (screen) {
+      if (screen && screen.facing >= FACE_MIN) {
         const d = Math.hypot(screen.x - cx, screen.y - cy);
         if (d < AIM_SOFT && (!best || d < best.dist)) {
           best = { station: playing, dist: d };
@@ -417,6 +431,7 @@ export function createGlobe(host) {
     ) {
       aimArmed = hit.station.uuid;
       browseArmed = false;
+      detached = false;
       holdCamera(HOLD_AIM_MS);
       onAim?.(hit.station);
     }
@@ -553,10 +568,9 @@ export function createGlobe(host) {
       playing = station ?? null;
       aimArmed = station?.uuid ?? null;
       settleNoise = false;
-      // Playing station is the single source of truth: leave browse so
-      // the sight cannot chain-lock a neighbour and yank the dial.
-      browseArmed = false;
-      if (!cameraHeld()) holdCamera(HOLD_AIM_MS);
+      // Parking the sun is not a new tune. A browse in progress keeps
+      // the camera; clearing it here is what yanked the globe back onto
+      // the ruler after a drag across empty ocean.
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
         stationPos = null;
         pins.setStation(null);
@@ -606,28 +620,42 @@ export function createGlobe(host) {
     /// Ease the view onto a station's region; no-op without coordinates.
     focus(lat, lon) {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-      // Browse owns the camera until the user picks or auto-tune commits.
-      if (dragging || browseArmed) {
-        pending = [
-          -lon * DEG,
-          Math.max(-MAX_PITCH, Math.min(MAX_PITCH, lat * DEG)),
-        ];
-        return;
-      }
+      // A browse leaves the camera where the hand did. Queuing this
+      // look-at would play it on the next click and reel the globe back.
+      if (dragging || browseArmed || detached) return;
       targetYaw = -lon * DEG;
       targetPitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, lat * DEG));
     },
     /// Aim at a station's draw position (spiral slot when fanned).
+    /// A no-op when the camera is already commanded there, so a globe
+    /// lock and the following play cannot start a second ease that
+    /// sweeps a neighbour under the sight.
     focusStation(station) {
       if (!station) return;
       // Do not pull the view back to the ruler's station while browsing.
-      if (dragging || browseArmed) return;
+      if (dragging || browseArmed || detached) return;
+      let nextYaw;
+      let nextPitch;
       const disp = pins.displayOf(station);
       if (disp) {
-        [targetYaw, targetPitch] = lookAt(disp[0], disp[1], disp[2]);
+        [nextYaw, nextPitch] = lookAt(disp[0], disp[1], disp[2]);
       } else if (Number.isFinite(station.lat) && Number.isFinite(station.lon)) {
-        this.focus(station.lat, station.lon);
+        nextYaw = -station.lon * DEG;
+        nextPitch = Math.max(
+          -MAX_PITCH,
+          Math.min(MAX_PITCH, station.lat * DEG),
+        );
+      } else {
+        return;
       }
+      if (
+        Math.abs(shortest(nextYaw - targetYaw)) < 0.02 &&
+        Math.abs(nextPitch - targetPitch) < 0.02
+      ) {
+        return;
+      }
+      targetYaw = nextYaw;
+      targetPitch = nextPitch;
     },
     setSpin(value) {
       spin = Boolean(value);

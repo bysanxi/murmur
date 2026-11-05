@@ -11,7 +11,7 @@
 // needs the network — only the station list is offline.
 
 import apis from "@deskulpt-test/apis";
-import { resolveCoords } from "./geo-fallback.js";
+import { repairCoords, resolveCoords } from "./geo-fallback.js";
 
 const MIRRORS = [
   "https://de1.api.radio-browser.info",
@@ -236,7 +236,9 @@ async function filteredFromCache(
   // A version bump still has the previous catalog; keep painting those
   // pins while the refresh runs instead of dropping to a handful.
   if (!cache?.stations?.length) return null;
-  let list = cache.stations.filter((station) => matchesFilter(station, filter));
+  let list = cache.stations
+    .map(repairCoords)
+    .filter((station) => matchesFilter(station, filter));
   if (locatedOnly) list = list.filter(located);
   if (list.length === 0) return null;
   if (shuffle) list = shuffled(list);

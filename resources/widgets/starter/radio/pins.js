@@ -25,6 +25,10 @@ function shortestAng(a, b) {
 }
 const HIT = 16; // px around a pin that still counts as a tap
 const NEAR = 0.05; // camera-space depth below which a point is behind us
+// Same test as the pin shader: a back-facing point still projects onto
+// the ocean in front of you, but it is not drawn. Counting it lit the
+// reticle and, on release, spun the globe around to that far side.
+export const FACE_MIN = 0.02;
 // RoamDial's precise grade still shares a point a handful of times
 // (Vatican is 7). A larger identical pile is a city snap, so it can fan.
 const PILE_EXACT = 8;
@@ -396,6 +400,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
       if (mix > 0.001 || was > 0.001) applySpread(mix);
     },
     /// Project a unit-sphere point into canvas pixels, or null if behind.
+    /// `facing` matches the shader's smoothstep so a hit is a drawn pin.
     project(view, x, y, z) {
       const { rot, proj, width, height, eye } = view;
       const rx = rot[0] * x + rot[3] * y + rot[6] * z;
@@ -403,9 +408,13 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
       const rz = rot[2] * x + rot[5] * y + rot[8] * z;
       const w = eye - rz;
       if (w <= NEAR) return null;
+      const len = Math.hypot(rx, ry, rz) || 1;
+      const f = rz / len;
+      const t = Math.max(0, Math.min(1, (f + 0.05) / 0.4));
       return {
         x: ((proj[0] * rx) / w) * 0.5 * width + width / 2,
         y: height / 2 - ((proj[5] * ry) / w) * 0.5 * height,
+        facing: t * t * (3 - 2 * t),
       };
     },
     /// Station closest on the globe to a lat/lon, using great-circle km.
@@ -446,7 +455,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
           pos[i * 3 + 1],
           pos[i * 3 + 2],
         );
-        if (!screen) continue;
+        if (!screen || screen.facing < FACE_MIN || dens[i] < 0) continue;
         const d = Math.hypot(screen.x - px, screen.y - py);
         if (d < near) {
           near = d;

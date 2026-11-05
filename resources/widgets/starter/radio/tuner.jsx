@@ -62,7 +62,14 @@ export function Tuner({
       seen.add(st.uuid);
       list.push(st);
     }
-    return list.toSorted((a, b) => a.lon - b.lon);
+    // West to east. Stations that share a coordinate keep a fixed order
+    // (latitude, then id). Sorting the station on air to the front would
+    // reshuffle that tie on every pick, so the ruler jumped.
+    return list.toSorted((a, b) => {
+      const dlon = a.lon - b.lon || a.lat - b.lat;
+      if (dlon) return dlon;
+      return a.uuid < b.uuid ? -1 : a.uuid > b.uuid ? 1 : 0;
+    });
   }, [station, upcoming, pool]);
 
   const cur = Math.max(

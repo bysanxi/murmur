@@ -167,12 +167,25 @@ export function GlobeView({
 
   const lat = station?.lat;
   const lon = station?.lon;
+  const aimedUuid = useRef(null);
   useEffect(() => {
-    globeRef.current?.setStation(station, lat, lon);
+    if (!showGlobe) {
+      aimedUuid.current = null;
+      return;
+    }
+    const globe = globeRef.current;
+    if (!globe) return;
+    globe.setStation(station, lat, lon);
+    // Aim only when the station on air changes. A later render of the
+    // same station (markers, clock, cache) must not reel a browse back
+    // onto the ruler.
+    if (!station?.uuid || aimedUuid.current === station.uuid) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    aimedUuid.current = station.uuid;
     // Prefer the fan slot when the city is spread — same as roamdial's
     // Ct(N[i]) — so locking a spiral pin does not yank back to the stack.
-    if (station) globeRef.current?.focusStation(station);
-  }, [station, lat, lon]);
+    globe.focusStation(station);
+  }, [station, lat, lon, showGlobe]);
 
   // Every located station gets a pin, including the one on air — the sun
   // rides on top, and keeping the pin lets a city fan survive a lock

@@ -201,13 +201,47 @@ function stateBase(countryCode, region) {
   return null;
 }
 
+/// Directory rows sometimes store a longitude past ±180 (SWR1 BW is
+/// -273). That point is not on the globe: the camera stops at ±74.5°
+/// and the pin sits off the bottom of the view. Treat it as missing.
+function usableCoord(lat, lon) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
+}
+
+/// Cached rows were normalized before out-of-range coordinates were
+/// rejected. Put those back through the fallback without a redownload.
+export function repairCoords(station) {
+  if (!station || usableCoord(station.lat, station.lon)) return station;
+  const coords = resolveCoords({
+    countryCode: station.countryCode,
+    region: station.region,
+    name: station.name,
+    lat: null,
+    lon: null,
+  });
+  return {
+    ...station,
+    lat: coords.lat,
+    lon: coords.lon,
+    geoApprox: coords.approx,
+    prec: coords.prec,
+  };
+}
+
 /// Fill missing coordinates. Real Radio Browser coords stay put at
 /// prec 3 (they never enter the zoom spiral). A city name is prec 2,
 /// a province capital prec 1, a country centroid prec 0 — same contract
 /// as RoamDial: only prec >= 3 is immovable. Identical fallbacks share
 /// one point so the far view dims them instead of drawing a disk.
 export function resolveCoords({ countryCode, region, name, lat, lon }) {
-  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+  if (usableCoord(lat, lon)) {
     return { lat, lon, approx: false, prec: 3 };
   }
   const code = String(countryCode || "").toUpperCase();
