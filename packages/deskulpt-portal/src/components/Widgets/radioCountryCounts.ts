@@ -21,7 +21,11 @@ function shuffled<T>(list: T[]): T[] {
   const out = list.slice();
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
+    const left = out[i];
+    const right = out[j];
+    if (left === undefined || right === undefined) continue;
+    out[i] = right;
+    out[j] = left;
   }
   return out;
 }
