@@ -20,7 +20,7 @@ window — and change quietly with the time of day.
 - Repository: [github.com/bysanxi/murmur](https://github.com/bysanxi/murmur)
 - Foundation: [Deskulpt](https://github.com/deskulpt-apps/Deskulpt)
 - Positioning: a subtle emotional companion / micro-break trigger on the desktop
-- Version: `0.3.0` — active development
+- Version: `0.3.1` — active development
 - License: MIT
 
 ---

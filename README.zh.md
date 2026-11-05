@@ -19,7 +19,7 @@
 - 仓库：[github.com/bysanxi/murmur](https://github.com/bysanxi/murmur)
 - 基座：[Deskulpt](https://github.com/deskulpt-apps/Deskulpt)
 - 定位：桌面上的情绪微陪伴 / 微休息触发器
-- 版本：`0.3.0` —— 持续开发中
+- 版本：`0.3.1` —— 持续开发中
 - 许可：MIT
 
 ---
