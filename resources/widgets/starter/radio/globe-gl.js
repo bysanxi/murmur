@@ -45,7 +45,10 @@ void main() {
   } else if (aKind > 1.5) {
     // Sprite stays a bit larger than the core so the halo can still read.
     float zoomOut = smoothstep(3.55, 5.2, uEye);
-    float pin = mix(0.95 + 1.25 * aDen, 0.7 + 0.85 * aDen, zoomOut);
+    // Size stops at a normal pin. A fallback pile may carry aDen above 1
+    // so it can be a little brighter without growing a harder disk.
+    float pinDen = min(max(aDen, 0.0), 1.0);
+    float pin = mix(0.95 + 1.25 * pinDen, 0.7 + 0.85 * pinDen, zoomOut);
     float falloff = mix(atten, atten * 0.62, zoomOut);
     size = clamp(
       pin * uPixelRatio * falloff * uPinScale * 1.08 *
@@ -86,7 +89,8 @@ void main() {
   float a = smoothstep(0.5, 0.0, r);
   a *= a;
   if (vKind > 1.5) {
-    if (r > 0.5 || facing < 0.02) discard;
+    // Negative density marks a station hidden inside a fallback pile.
+    if (r > 0.5 || facing < 0.02 || vDen < 0.0) discard;
     float core = exp(-r * r * 42.0);
     float halo = exp(-r * r * 7.5);
     float lamp = core * 1.25 + halo * 0.38;

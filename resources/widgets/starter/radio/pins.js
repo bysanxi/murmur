@@ -28,6 +28,29 @@ const NEAR = 0.05; // camera-space depth below which a point is behind us
 // RoamDial's precise grade still shares a point a handful of times
 // (Vatican is 7). A larger identical pile is a city snap, so it can fan.
 const PILE_EXACT = 8;
+// One soft spark for a shared fallback coordinate, a little brighter
+// than a lone station. The rest stay in the buffer for the zoom spiral
+// but do not draw until they leave the pile.
+const PILE_GAIN = 1.25;
+
+function collapseFallback(list, dens) {
+  const groups = new Map();
+  for (let i = 0; i < list.length; i += 1) {
+    if (precOf(list[i]) >= 3) continue;
+    const key = `${Math.round(list[i].lat * 100)}:${Math.round(list[i].lon * 100)}`;
+    const group = groups.get(key);
+    if (group) group.push(i);
+    else groups.set(key, [i]);
+  }
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    let lead = members[0];
+    for (const i of members) {
+      if ((list[i].pop || 0) > (list[lead].pop || 0)) lead = i;
+    }
+    for (const i of members) dens[i] = i === lead ? PILE_GAIN : -1;
+  }
+}
 
 function gradePiles(list) {
   const groups = new Map();
@@ -143,8 +166,10 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
     station[2] = stationHome[2];
   }
 
-  /// Carpet stays at true homes. Fanned stations fade off the stack and
-  /// a second copy rides the spiral, the way roamdial mixes position→aRing.
+  /// Carpet stays at true homes. A fanned station's home pin is hidden
+  /// while its copy rides the spiral — a density fade still draws,
+  /// because pin brightness has a floor, and that leftover dot is not
+  /// a hit target. The collapsed fallback marker hides with them.
   function applySpread(mix) {
     spreadMix = mix;
     pos.set(home.subarray(0, count * 3));
@@ -153,9 +178,16 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
     fanCount = 0;
     if (plan && mix > 0.001) {
       fanCount = plan.indices.length;
+      const openPiles = new Set();
       for (let t = 0; t < fanCount; t += 1) {
         const i = plan.indices[t];
-        dens[i] = homeDens[i] * (1 - mix);
+        dens[i] = -1;
+        const item = items[i];
+        if (item && precOf(item) < 3) {
+          openPiles.add(
+            `${Math.round(item.lat * 100)}:${Math.round(item.lon * 100)}`,
+          );
+        }
         const dst = count + t;
         const o = i * 3;
         const r = t * 3;
@@ -171,6 +203,13 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
         const rad = Math.sqrt((t + 0.55) / (fanCount + 0.55));
         dens[dst] = Math.max(0.4, 1 - rad * 0.55);
         kinds[dst] = 3;
+      }
+      for (let i = 0; i < count; i += 1) {
+        if (dens[i] < 0) continue;
+        const item = items[i];
+        if (!item || precOf(item) >= 3) continue;
+        const key = `${Math.round(item.lat * 100)}:${Math.round(item.lon * 100)}`;
+        if (openPiles.has(key)) dens[i] = -1;
       }
     }
     syncSun(mix);
@@ -217,6 +256,8 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
         kinds[i] = 2;
         items.push(accepted[i]);
       }
+      collapseFallback(items, homeDens);
+      for (let i = 0; i < count; i += 1) dens[i] = homeDens[i];
       if (snap && ring.restore(snap, items)) {
         applySpread(
           ring.target === 1
