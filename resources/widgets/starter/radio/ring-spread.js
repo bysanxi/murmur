@@ -1,26 +1,26 @@
-// When the camera dives onto a packed city, RoamDial fans those pins out
-// along a golden-angle spiral so the sight can pick one; zooming back out
-// eases them home. Same thresholds, scaled to our unit sphere.
+// When the camera dives in, RoamDial fans low-precision pins (prec < 3)
+// along a golden-angle spiral so the sight can pick one. Precise pins
+// stay put. Zooming out, or looking away from the spiral, eases them home.
+// Thresholds are theirs (camera distance 3.9 / 4.3 on a 1.6-radius globe),
+// scaled onto our unit sphere. The spiral itself is drawn by pins.js.
 
 const DEG = Math.PI / 180;
-// RoamDial opens below b/gI ≈ 3.9/1.6 and closes above 4.3/1.6.
-// Open a hair earlier so a dense metro qualifies before the camera
-// is sitting on the surface.
-export const RING_OPEN_EYE = 2.55;
-export const RING_CLOSE_EYE = 2.85;
+// RoamDial opens at b <= 3.9 and closes above b > 4.3, globe radius 1.6.
+export const RING_OPEN_EYE = 3.9 / 1.6;
+export const RING_CLOSE_EYE = 4.3 / 1.6;
 const RING_MIN = 4;
 export const RING_MAX = 700;
-// Search net at the open threshold (≈290 km). Tightens toward a city
-// as the camera dives in. RoamDial's 0.75° cone assumes ~35k precise
-// coords; our catalog is smaller and many pins share a province cell.
-const CONE_FAR = 2.6 * DEG;
-const CONE_NEAR = 0.95 * DEG;
-const CITY_MIN = 1.05 * DEG;
+// Fixed sight cone. RoamDial uses 0.75°.
+const CONE = 0.75 * DEG;
+const PREC_EXACT = 3;
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 const EASE_SPEED = 4.5;
 const SURFACE = 1.012; // lift the fan slightly off the globe
 // First spiral slot sits clear of the city stack (roamdial uses √0.6).
 const SPIRAL_START = 0.55;
+// Look-away closes past 1.5× the spiral's own angular radius.
+const LOOK_AWAY = 1.5;
+const LOOK_AWAY_PAD = 0.004;
 
 /// Cubic smoothstep matching roamdial's shader ease().
 export function ringEase(t) {
@@ -47,49 +47,38 @@ function spacing(eye) {
   return (0.0105 / 1.6) * Math.max(0.6, (at - 1) / 1.3);
 }
 
-function searchCone(eye) {
-  const t = Math.max(0, Math.min(1, (RING_OPEN_EYE - eye) / 1.25));
-  return CONE_FAR + (CONE_NEAR - CONE_FAR) * t;
+/// prec >= 3 never fans. Missing grades: a directory pin is exact,
+/// an approximate fallback is coarse.
+export function precOf(item) {
+  if (Number.isFinite(item?.prec)) return item.prec;
+  if (item?.geoApprox) return 0;
+  return PREC_EXACT;
 }
 
-/// Stations whose homes sit in a city-sized clump under the sight.
-function gatherClump(homes, count, center, eye) {
-  const cosCone = Math.cos(searchCone(eye));
+/// Low-precision stations inside the 0.75° sight cone.
+/// More than RING_MAX keeps the most popular, and that order is the
+/// spiral order — same as RoamDial.
+function gatherCone(homes, items, count, center) {
+  const cosCone = Math.cos(CONE);
   const hits = [];
   for (let i = 0; i < count; i += 1) {
+    if (precOf(items[i]) >= PREC_EXACT) continue;
     const x = homes[i * 3];
     const y = homes[i * 3 + 1];
     const z = homes[i * 3 + 2];
     const dot = x * center[0] + y * center[1] + z * center[2];
-    if (dot > cosCone) hits.push({ i, dot, x, y, z });
+    if (dot > cosCone) hits.push({ i, dot, pop: items[i]?.pop || 0 });
   }
   if (hits.length < RING_MIN) return null;
-  hits.sort((a, b) => b.dot - a.dot);
-
-  const cityCos = Math.cos(Math.max(CITY_MIN, searchCone(eye) * 0.5));
-  let best = null;
-  const seeds = Math.min(hits.length, 28);
-  for (let s = 0; s < seeds; s += 1) {
-    const seed = hits[s];
-    const group = [];
-    for (const h of hits) {
-      if (h.x * seed.x + h.y * seed.y + h.z * seed.z > cityCos) {
-        group.push(h);
-      }
-    }
-    if (!best || group.length > best.length) best = group;
-    if (best.length >= RING_MAX) break;
-  }
-  if (!best || best.length < RING_MIN) return null;
-  best.sort((a, b) => b.dot - a.dot);
-  if (best.length > RING_MAX) best.length = RING_MAX;
-  return best;
+  hits.sort((a, b) => b.pop - a.pop || b.dot - a.dot);
+  if (hits.length > RING_MAX) hits.length = RING_MAX;
+  return hits;
 }
 
-/// Build a ring plan for stations near the sight, or null when too sparse.
-export function planRing(homes, count, center, eye) {
+/// Build a ring plan for low-precision stations under the sight, or null.
+export function planRing(homes, items, count, center, eye) {
   if (eye > RING_OPEN_EYE) return null;
-  const hits = gatherClump(homes, count, center, eye);
+  const hits = gatherCone(homes, items, count, center);
   if (!hits) return null;
 
   const ax = center[0];
@@ -134,11 +123,9 @@ export function planRing(homes, count, center, eye) {
     targets[t * 3 + 1] = originY + (sy * cos + cy * sin) * rad;
     targets[t * 3 + 2] = originZ + (sz * cos + cz * sin) * rad;
   }
-  const farthest = hits.at(-1).dot;
-  const halfAngle = Math.max(
-    step * Math.sqrt(hits.length),
-    Math.acos(Math.min(1, Math.max(-1, farthest))),
-  );
+  // Angular radius of the spiral on the unit sphere. Look-away uses
+  // 1.5× this, matching RoamDial's Lt.
+  const halfAngle = step * Math.sqrt(hits.length);
   return {
     indices,
     targets,
@@ -167,35 +154,30 @@ export function createRingAnimator() {
     get plan() {
       return plan;
     },
-    /// Drive toward open/closed; rebuilds the spiral when first opening.
-    /// Returns the display mix: 1 = fully on the spiral (home hidden),
-    /// 0 = fully home. Opening snaps onto the spiral so the city stack
-    /// vanishes; closing eases back so the originals reform.
-    tick(dt, { eye, center, homes, count }) {
-      // Dolly out past the close threshold → fold. Pan at the same zoom
-      // keeps the spiral even off the cluster; a new dense city replaces it.
+    /// Drive toward open/closed. Returns the display mix: 1 = fully on
+    /// the spiral (home hidden), 0 = fully home. A locked precise station
+    /// (prec >= 3) refuses to open. Looking past 1.5× the spiral, or
+    /// dollying out, folds it; a new cone is planned only once it is shut.
+    tick(dt, { eye, center, homes, items, count, focusPrec = null }) {
       if (eye > RING_CLOSE_EYE) {
         target = 0;
-      } else if (eye < RING_OPEN_EYE) {
-        const next = planRing(homes, count, center, eye);
+      } else if (open && plan) {
+        const d =
+          center[0] * plan.center[0] +
+          center[1] * plan.center[1] +
+          center[2] * plan.center[2];
+        const ang = Math.acos(Math.min(1, Math.max(-1, d)));
+        if (ang > plan.halfAngle * LOOK_AWAY + LOOK_AWAY_PAD) target = 0;
+      }
+
+      // Precise pin under the sight: leave the carpet stacked.
+      const blocked = Number.isFinite(focusPrec) && focusPrec >= PREC_EXACT;
+      if (!blocked && eye <= RING_OPEN_EYE && target === 0 && amount < 0.01) {
+        const next = planRing(homes, items, count, center, eye);
         if (next) {
-          let moved = true;
-          if (plan) {
-            const d =
-              center[0] * plan.center[0] +
-              center[1] * plan.center[1] +
-              center[2] * plan.center[2];
-            const ang = Math.acos(Math.min(1, Math.max(-1, d)));
-            moved = ang > plan.halfAngle * 0.85 + 0.003;
-          }
-          if (!open || amount < 0.01) {
-            plan = next;
-            open = true;
-            target = 1;
-          } else if (moved) {
-            plan = next;
-            target = 1;
-          }
+          plan = next;
+          open = true;
+          target = 1;
         }
       }
 

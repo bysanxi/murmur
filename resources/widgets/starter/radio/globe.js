@@ -8,6 +8,7 @@ import { landPositions } from "./land-data.js";
 import { FOV, FRAG, VERT, link, makeProjection, rotation } from "./globe-gl.js";
 import { createBloom } from "./bloom.js";
 import { createPins } from "./pins.js";
+import { precOf } from "./ring-spread.js";
 import { createReticle } from "./reticle.js";
 import { coordOf } from "./format.js";
 
@@ -464,10 +465,12 @@ export function createGlobe(host) {
     dragAmount = 0;
     // Fan a dense city into a spiral once the camera has settled close in;
     // zooming out eases the pins back onto the globe.
+    const aimed = sightHit()?.station;
     pins.tickSpread(dt, {
       eye,
       yaw,
       pitch,
+      focusPrec: aimed ? precOf(aimed) : null,
     });
     // Keep the aim sun on the fan slot when the city is spread.
     const sun = pins.sunPos();

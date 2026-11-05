@@ -34,7 +34,7 @@ const CACHE_PATH = "stations-cache.json";
 const STATUS_PATH = "cache-status.json";
 // Bump when the cached shape or inclusion rules change so an old file
 // (e.g. geo-only, which skipped most Chinese stations) is pulled again.
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 // Directory entries go stale as streams die; a week is long enough to be
 // useful offline without clinging to dead URLs for months.
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -103,6 +103,9 @@ function normalize(raw, mirror) {
     lat: coords.lat,
     lon: coords.lon,
     geoApprox: coords.approx,
+    // RoamDial prec: >= 3 stays put, below 3 may fan when the camera is close.
+    prec: coords.prec,
+    pop: Number(raw.clickcount) || 0,
     tags: String(raw.tags || "")
       .split(",")
       .map((tag) => tag.trim())

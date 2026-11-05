@@ -9,6 +9,7 @@ import { packHomes } from "./pack-homes.js";
 import {
   RING_MAX,
   createRingAnimator,
+  precOf,
   ringEase,
   viewCenter,
 } from "./ring-spread.js";
@@ -26,6 +27,25 @@ function shortestAng(a, b) {
 }
 const HIT = 16; // px around a pin that still counts as a tap
 const NEAR = 0.05; // camera-space depth below which a point is behind us
+// RoamDial's precise grade still shares a point a handful of times
+// (Vatican is 7). A larger identical pile is a city snap, so it can fan.
+const PILE_EXACT = 8;
+
+function gradePiles(list) {
+  const groups = new Map();
+  for (const item of list) {
+    item.prec = precOf(item);
+    if (item.prec < 3) continue;
+    const key = `${Math.round(item.lat * 100)}:${Math.round(item.lon * 100)}`;
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else groups.set(key, [item]);
+  }
+  for (const members of groups.values()) {
+    if (members.length < PILE_EXACT) continue;
+    for (const item of members) item.prec = 2;
+  }
+}
 
 export function createPins(gl, aPos, aKind, aColor, aDen) {
   const home = new Float32Array(SLOTS * 3);
@@ -174,6 +194,7 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
         }
         accepted.push(item);
       }
+      gradePiles(accepted);
       // True lat/lon carpet; dens dims crowded cells into a heatmap.
       const packed = packHomes(accepted, home);
       count = accepted.length;
@@ -308,14 +329,16 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
       return Boolean(stationUuid && item.uuid === stationUuid && plan);
     },
     /// Open / ease / close the city fan from the current camera.
-    tickSpread(dt, { eye, yaw, pitch }) {
+    tickSpread(dt, { eye, yaw, pitch, focusPrec = null }) {
       const was = ring.amount;
       viewCenter(yaw, pitch, center);
       const mix = ring.tick(dt, {
         eye,
         center,
         homes: home,
+        items,
         count,
+        focusPrec,
       });
       // Skip the upload while the fan is fully closed and idle.
       if (mix > 0.001 || was > 0.001) applySpread(mix);

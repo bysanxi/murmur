@@ -191,21 +191,6 @@ const COUNTRY = {
   JM: [18.1, -77.3],
 };
 
-function hash01(text) {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.codePointAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 4294967296;
-}
-
-function jitter(seed, lat, lon, spread) {
-  const a = hash01(`${seed}:lat`);
-  const b = hash01(`${seed}:lon`);
-  return [lat + (a - 0.5) * 2 * spread, lon + (b - 0.5) * 2 * spread];
-}
-
 function stateBase(countryCode, region) {
   if (!region) return null;
   const key = String(region).trim().toLowerCase();
@@ -216,24 +201,27 @@ function stateBase(countryCode, region) {
   return null;
 }
 
-/// Fill missing coordinates. Real Radio Browser coords are left
-/// untouched. A city hit is treated as a true pin (same city stacks
-/// dim via aDen instead of being fanned into a disk).
-export function resolveCoords({ uuid, countryCode, region, name, lat, lon }) {
+/// Fill missing coordinates. Real Radio Browser coords stay put at
+/// prec 3 (they never enter the zoom spiral). A city name is prec 2,
+/// a province capital prec 1, a country centroid prec 0 — same contract
+/// as RoamDial: only prec >= 3 is immovable. Identical fallbacks share
+/// one point so the far view dims them instead of drawing a disk.
+export function resolveCoords({ countryCode, region, name, lat, lon }) {
   if (Number.isFinite(lat) && Number.isFinite(lon)) {
-    return { lat, lon, approx: false };
+    return { lat, lon, approx: false, prec: 3 };
   }
   const code = String(countryCode || "").toUpperCase();
-  const seed = uuid || `${code}|${region}|${name}`;
   const city = cityCoordsOf(name, region);
   if (city) {
-    const [jlat, jlon] = jitter(seed, city[0], city[1], 0.04);
-    return { lat: jlat, lon: jlon, approx: false };
+    return { lat: city[0], lon: city[1], approx: false, prec: 2 };
   }
   const province = stateBase(code, region);
-  const base = province || COUNTRY[code] || null;
-  if (!base) return { lat: null, lon: null, approx: false };
-  // Centidegree-scale noise only — a wide lat/lon box reads as streaks.
-  const [jlat, jlon] = jitter(seed, base[0], base[1], 0.04);
-  return { lat: jlat, lon: jlon, approx: true };
+  if (province) {
+    return { lat: province[0], lon: province[1], approx: true, prec: 1 };
+  }
+  const country = COUNTRY[code];
+  if (country) {
+    return { lat: country[0], lon: country[1], approx: true, prec: 0 };
+  }
+  return { lat: null, lon: null, approx: false, prec: 3 };
 }
