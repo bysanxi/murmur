@@ -92,6 +92,27 @@ export function GlobeView({
   const sightRef = useRef(onSight);
   const [compact, setCompact] = useState(false);
   const [hot, setHot] = useState(false);
+
+  // Status, station name, and the detail line. The ruler keeps its own face.
+  // Subsets load as the glyphs show up; until then those lines use the
+  // theme face.
+  useEffect(() => {
+    const id = "murmur-ibm-plex-sans-sc";
+    const href =
+      "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+SC:wght@400;500&display=swap";
+    const existing = document.querySelector(`#${id}`);
+    if (existing) {
+      if (existing.getAttribute("href") !== href) {
+        existing.setAttribute("href", href);
+      }
+      return;
+    }
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = href;
+    document.head.append(link);
+  }, []);
   levelsRef.current = getAudioLevels;
   sightRef.current = onSight;
 
@@ -327,19 +348,54 @@ export function GlobeView({
                   transition: "background 400ms ease",
                 }}
               />
-              <Text size="1" style={{ color: TYPE.status, ...ELLIPSIS }}>
+              <Text
+                size="1"
+                style={{
+                  color: TYPE.status,
+                  ...ELLIPSIS,
+                  fontFamily: '"IBM Plex Sans SC", sans-serif',
+                  fontWeight: 400,
+                }}
+              >
                 {statusText}
               </Text>
             </Flex>
             <Text
               size="7"
-              weight="bold"
-              style={{ color: TYPE.name, ...ELLIPSIS, lineHeight: 1.15 }}
+              style={{
+                display: "block",
+                width: "100%",
+                overflow: "hidden",
+                color: TYPE.name,
+                lineHeight: 1.15,
+                fontFamily: '"IBM Plex Sans SC", sans-serif',
+                fontWeight: 500,
+              }}
             >
-              {station?.name || statusLine || strings.tuning}
+              <span
+                style={{
+                  display: "block",
+                  width: "calc(100% / 0.74)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  transform: "scaleX(0.74)",
+                  transformOrigin: "left center",
+                }}
+              >
+                {station?.name || statusLine || strings.tuning}
+              </span>
             </Text>
             {detail && (
-              <Text size="1" style={{ color: TYPE.detail, ...ELLIPSIS }}>
+              <Text
+                size="1"
+                style={{
+                  color: TYPE.detail,
+                  ...ELLIPSIS,
+                  fontFamily: '"IBM Plex Sans SC", sans-serif',
+                  fontWeight: 400,
+                }}
+              >
                 {detail}
               </Text>
             )}

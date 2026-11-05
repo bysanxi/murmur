@@ -18,6 +18,11 @@ const EDGE_FADE =
 const HOT = "#ff6a45"; // the station on air
 const SLOT = 80; // one station's cell
 const NAME_W = 72; // names are one fixed width, then ellipsis
+// Chinese glyphs are square. Draw them taller than wide: a larger size,
+// then squeeze the width. The layout box is wider by the same factor so
+// the ellipsis still lands on the visible edge.
+const NAME_SX = 0.74;
+const NAME_PX = 15;
 const TICK = 24; // the station mark, tallest on the ruler
 const KEEP = 6; // slots mounted either side of the middle
 const PAGE = 12; // slots pulled in when a drag reaches the edge
@@ -205,15 +210,27 @@ export function Ruler({ stations, cur, onPick, onScrub, onWake }) {
           <span
             style={{
               width: NAME_W,
-              font: "italic 600 11px/1.25 system-ui,-apple-system,'Segoe UI',sans-serif",
-              color: on ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.5)",
-              textAlign: "center",
-              whiteSpace: "nowrap",
+              display: "flex",
+              justifyContent: "center",
               overflow: "hidden",
-              textOverflow: "ellipsis",
             }}
           >
-            {st.name}
+            <span
+              style={{
+                width: NAME_W / NAME_SX,
+                flex: "0 0 auto",
+                font: `italic 400 ${NAME_PX}px/1 system-ui,-apple-system,'Segoe UI',sans-serif`,
+                color: on ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.5)",
+                textAlign: "center",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                transform: `scaleX(${NAME_SX})`,
+                transformOrigin: "center center",
+              }}
+            >
+              {st.name}
+            </span>
           </span>
           <span
             style={{
