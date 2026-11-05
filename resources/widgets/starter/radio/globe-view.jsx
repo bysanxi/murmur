@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from "@deskulpt-test/react";
 import { Flex, Text } from "@deskulpt-test/ui";
 import { createGlobe } from "./globe.js";
+import { SearchBox } from "./search-box.jsx";
 import { Tuner } from "./tuner.jsx";
 import { ELLIPSIS, coordOf, lockMetaOf } from "./format.js";
 
@@ -72,6 +73,10 @@ export function GlobeView({
   upcoming,
   showGlobe = true,
   showMeta = true,
+  language,
+  httpsOnly,
+  cacheOn,
+  cacheEpoch,
   getAudioLevels,
   onSurfacePointerDown,
   onToggle,
@@ -86,6 +91,7 @@ export function GlobeView({
   const levelsRef = useRef(getAudioLevels);
   const sightRef = useRef(onSight);
   const [compact, setCompact] = useState(false);
+  const [hot, setHot] = useState(false);
   levelsRef.current = getAudioLevels;
   sightRef.current = onSight;
 
@@ -142,9 +148,9 @@ export function GlobeView({
 
   // Dial / skip / random / pin tap: explicit tune. The globe follows
   // and auto-aim stays off until the user drags the globe again.
-  const pickExplicit = (next) => {
+  const pickExplicit = (next, opts) => {
     globeRef.current?.noteExplicitTune(next);
-    onPick(next);
+    onPick(next, opts);
   };
 
   // A tap on a pin tunes that station; a drag still spins the globe. The
@@ -224,11 +230,14 @@ export function GlobeView({
       justify={showGlobe ? "start" : "center"}
       width="100%"
       height="100%"
+      onPointerEnter={() => setHot(true)}
+      onPointerLeave={() => setHot(false)}
       onPointerDown={(event) => {
         if (
           event.button === 0 &&
           !event.target.closest("button") &&
-          !event.target.closest("[data-globe]")
+          !event.target.closest("[data-globe]") &&
+          !event.target.closest("[data-search]")
         ) {
           globeRef.current?.noteExplicitTune(station);
         }
@@ -349,6 +358,16 @@ export function GlobeView({
           keepRuler={!showMeta}
         />
       </Flex>
+      <SearchBox
+        widgetId={id}
+        hot={hot}
+        strings={strings}
+        language={language}
+        httpsOnly={httpsOnly}
+        cacheOn={cacheOn}
+        cacheEpoch={cacheEpoch}
+        onPick={pickExplicit}
+      />
     </Flex>
   );
 }

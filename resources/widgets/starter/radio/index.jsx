@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "@deskulpt-test/react";
 import { countListen, createQueue, syncStationCache } from "./stations.js";
+import { lastStationFits, loadRadioState, rememberStation } from "./state.js";
 import { localTimeOf, lookupGeo } from "./geo.js";
 import { createPlayer } from "./player.js";
 import { GlobeView } from "./globe-view.jsx";
@@ -60,6 +61,7 @@ function Radio({ config, id, width, height }) {
   const playerRef = useRef(null);
   const queueRef = useRef(null);
   const feedRef = useRef([]);
+  const stationRef = useRef(null);
   const skipRef = useRef(0);
   const lastTapRef = useRef(0);
   const refreshHandledRef = useRef(null);
@@ -120,6 +122,7 @@ function Radio({ config, id, width, height }) {
     // The component may have unmounted while the catalog request was in
     // flight; a destroyed player must not be handed a new station.
     if (playerRef.current !== player) return;
+    stationRef.current = next;
     setStation(next);
     setGeo(null);
     player.play(next);
@@ -129,9 +132,11 @@ function Radio({ config, id, width, height }) {
 
   // A tap on the tuner ruler slides that station under the needle: it
   // jumps the feed queue and the regular switch takes it from there.
-  playPickRef.current = async (next) => {
+  playPickRef.current = async (next, opts) => {
     if (!next || next.uuid === station?.uuid) return;
-    if (status === "blocked") return playerRef.current?.resume();
+    if (status === "blocked" && !opts?.force) {
+      return playerRef.current?.resume();
+    }
     skipRef.current = 0;
     feedRef.current = feedRef.current.filter((s) => s.uuid !== next.uuid);
     feedRef.current.unshift(next);
@@ -162,7 +167,11 @@ function Radio({ config, id, width, height }) {
   useEffect(() => {
     const player = createPlayer({
       onState: (state) => {
-        if (state === "playing") skipRef.current = 0;
+        if (state === "playing") {
+          skipRef.current = 0;
+          const current = stationRef.current;
+          if (current) void rememberStation(current);
+        }
         setStatus(state);
       },
       onDead: () => {
@@ -182,13 +191,40 @@ function Radio({ config, id, width, height }) {
     };
   }, []);
 
-  // Fetch the first batch and start playing. A country change reshapes the
-  // queue but does not interrupt the station already playing; the next
-  // switch picks it up.
+  // Open on the last station that actually played, when it still matches
+  // the country and HTTPS filter. Otherwise take the next one in the queue.
+  // Play it directly: the catalog sync below replaces the queue and clears
+  // the feed as soon as the cache is ready, which would drop a station
+  // that was only waiting at the front of that feed.
   useEffect(() => {
+    let alive = true;
     queueRef.current = createQueue(filterOf(configRef.current));
-    void playNextRef.current();
+    void (async () => {
+      const saved = await loadRadioState();
+      const player = playerRef.current;
+      if (!alive || !player || !queueRef.current) return;
+      const last = saved.lastStation;
+      if (!lastStationFits(last, filterOf(configRef.current))) {
+        await playNextRef.current();
+        return;
+      }
+      stationRef.current = last;
+      setStation(last);
+      setGeo(null);
+      setStatus("tuning");
+      player.play(last);
+      countListen(last);
+      void lookupGeo(last).then((place) => {
+        if (alive) setGeo(place);
+      });
+      feedRef.current = feedRef.current.filter(
+        (item) => item.uuid !== last.uuid,
+      );
+      await fillFeed();
+      if (alive) setUpcoming(feedRef.current.slice(0, FEED_SIZE));
+    })();
     return () => {
+      alive = false;
       queueRef.current = null;
     };
   }, []);
@@ -311,7 +347,13 @@ function Radio({ config, id, width, height }) {
     if (touchOf(configRef.current) !== "feed") return;
     const onTap = (x, y) => {
       const hit = document.elementFromPoint(x, y);
-      if (hit?.closest("button") || hit?.closest("[data-globe]")) return;
+      if (
+        hit?.closest("button") ||
+        hit?.closest("[data-globe]") ||
+        hit?.closest("[data-search]") ||
+        hit?.closest("input")
+      )
+        return;
       handleTapRef.current();
     };
     const taps = (window.__murmurDeskulptTaps ??= {});
@@ -339,6 +381,7 @@ function Radio({ config, id, width, height }) {
     if (event.button !== 0) return;
     if (event.target.closest("button")) return;
     if (event.target.closest("[data-globe]")) return;
+    if (event.target.closest("[data-search]")) return;
     handleTapRef.current();
   };
 
@@ -373,6 +416,10 @@ function Radio({ config, id, width, height }) {
         upcoming={upcoming}
         showGlobe={showGlobe}
         showMeta={showMeta}
+        language={language}
+        httpsOnly={config?.httpsOnly !== false}
+        cacheOn={cacheCatalogOf(config)}
+        cacheEpoch={cacheEpoch}
         getAudioLevels={() =>
           playerRef.current?.levels?.() ?? { level: 0, bass: 0 }
         }

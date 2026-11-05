@@ -21,6 +21,12 @@ export const STRINGS = {
     cached: "已缓存 {n} 台",
     cacheError: "列表没下完，先用在线抽查",
     cacheStale: "仍用上次的 {n} 台",
+    searchPh: "搜电台、城市或国家…",
+    searchPhKey: "搜电台、城市或国家…  ( / )",
+    searchOpen: "搜索",
+    searchClear: "清除",
+    noHit: "没有找到，换个关键词",
+    searchCountry: "国 · {n} 局",
   },
   en: {
     tuning: "Tuning in…",
@@ -40,6 +46,12 @@ export const STRINGS = {
     cached: "Cached {n} stations",
     cacheError: "Download failed; using online picks",
     cacheStale: "Still using {n} saved stations",
+    searchPh: "Search a station, city or country…",
+    searchPhKey: "Search a station, city or country…  ( / )",
+    searchOpen: "Search",
+    searchClear: "Clear",
+    noHit: "Nothing found. Try another word.",
+    searchCountry: "Country · {n}",
   },
 };
 

@@ -382,6 +382,18 @@ export async function syncStationCache({
   }
 }
 
+/// The whole local catalog for search. The country setting is ignored so a
+/// query can reach any land; HTTPS still applies. Null when there is no
+/// catalog file yet.
+export async function catalogForSearch(httpsOnly) {
+  const cache = await loadStationCache();
+  if (!cache?.stations?.length) return null;
+  const filter = { country: "random", httpsOnly };
+  return cache.stations
+    .map(repairCoords)
+    .filter((station) => matchesFilter(station, filter));
+}
+
 /// One random batch of playable stations, or null when no mirror answers.
 export async function fetchStations(filter) {
   const cached = await filteredFromCache(filter, { limit: BATCH });
