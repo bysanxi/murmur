@@ -14,10 +14,8 @@ import {
   viewCenter,
 } from "./ring-spread.js";
 
-// Matches stations.GEO_CACHE_LIMIT so a full local catalog can land on
-// the globe instead of being clipped to the old online sample size.
-const CAPACITY = 8000;
-const SLOTS = CAPACITY + RING_MAX + 1;
+// Fan copies sit after the catalog. The catalog itself is whatever the
+// marker list contains — no fixed cap.
 
 function shortestAng(a, b) {
   let d = a - b;
@@ -48,12 +46,25 @@ function gradePiles(list) {
 }
 
 export function createPins(gl, aPos, aKind, aColor, aDen) {
-  const home = new Float32Array(SLOTS * 3);
-  const pos = new Float32Array(SLOTS * 3);
-  const kinds = new Float32Array(SLOTS);
-  const colors = new Float32Array(SLOTS * 3);
-  const dens = new Float32Array(SLOTS);
-  const homeDens = new Float32Array(CAPACITY);
+  let slots = RING_MAX + 1;
+  let home = new Float32Array(slots * 3);
+  let pos = new Float32Array(slots * 3);
+  let kinds = new Float32Array(slots);
+  let colors = new Float32Array(slots * 3);
+  let dens = new Float32Array(slots);
+  let homeDens = new Float32Array(1);
+
+  function ensure(nextCount) {
+    const need = nextCount + RING_MAX + 1;
+    if (need <= slots && homeDens.length >= nextCount) return;
+    slots = need;
+    home = new Float32Array(slots * 3);
+    pos = new Float32Array(slots * 3);
+    kinds = new Float32Array(slots);
+    colors = new Float32Array(slots * 3);
+    dens = new Float32Array(slots);
+    homeDens = new Float32Array(Math.max(nextCount, 1));
+  }
   kinds[0] = 1; // the station slot before the first upload
   colors.set([1, 0.74, 0.45], 0); // on-air sun tint until a station lands
   dens[0] = 1;
@@ -188,12 +199,12 @@ export function createPins(gl, aPos, aKind, aColor, aDen) {
       count = 0;
       const accepted = [];
       for (const item of list) {
-        if (accepted.length >= CAPACITY) break;
         if (!Number.isFinite(item?.lat) || !Number.isFinite(item?.lon)) {
           continue;
         }
         accepted.push(item);
       }
+      ensure(accepted.length);
       gradePiles(accepted);
       // True lat/lon carpet; dens dims crowded cells into a heatmap.
       const packed = packHomes(accepted, home);

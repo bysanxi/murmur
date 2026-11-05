@@ -28,7 +28,9 @@ const BATCH = 100;
 // Online geo sample stays modest; the local catalog can feed the globe
 // far more densely once it has been pulled down.
 const GEO_LIMIT = 500;
-const GEO_CACHE_LIMIT = 8000;
+// One country search when the local catalog is off. The cached globe
+// itself is not capped.
+const GEO_COUNTRY_LIMIT = 100000;
 const PAGE = 1000;
 const CACHE_PATH = "stations-cache.json";
 const STATUS_PATH = "cache-status.json";
@@ -385,21 +387,18 @@ export async function fetchStations(filter) {
   return raceSearch(searchPath(filter), filter.httpsOnly, false);
 }
 
-/// Located stations for the globe's pins. Prefers the local catalog (up
-/// to GEO_CACHE_LIMIT) so a finished download actually densifies the map;
-/// falls back to a thinner online sample when the cache is off or empty.
-/// Country filters raise the online cap so a dense region like China is
-/// not truncated to a world-wide random handful.
+/// Located stations for the globe's pins. The local catalog is drawn in
+/// full. With the cache off, the world falls back to a thin online sample;
+/// a country filter asks for that country's list instead.
 export async function fetchGeoStations(filter) {
   const cached = await filteredFromCache(filter, {
     locatedOnly: true,
-    limit: GEO_CACHE_LIMIT,
-    shuffle: true,
+    shuffle: false,
   });
   if (cached) return cached;
   const countryScoped = filter.country && filter.country !== "random";
   const path = searchPath(filter, {
-    limit: String(countryScoped ? GEO_CACHE_LIMIT : GEO_LIMIT),
+    limit: String(countryScoped ? GEO_COUNTRY_LIMIT : GEO_LIMIT),
     // Prefer popular stations so the thinner world sample still lands
     // somewhere meaningful instead of pure alphabet noise.
     order: countryScoped ? "clickcount" : "random",

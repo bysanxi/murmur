@@ -111,7 +111,7 @@ export function planRing(homes, items, count, center, eye) {
   const originY = ay * SURFACE;
   const originZ = az * SURFACE;
   const targets = new Float32Array(hits.length * 3);
-  const indices = new Uint16Array(hits.length);
+  const indices = new Uint32Array(hits.length);
   for (let t = 0; t < hits.length; t += 1) {
     const idx = hits[t].i;
     indices[t] = idx;
@@ -249,7 +249,7 @@ export function createRingAnimator() {
         return false;
       }
       plan = {
-        indices: Uint16Array.from(indices),
+        indices: Uint32Array.from(indices),
         targets: Float32Array.from(targets),
         center: new Float32Array(snap.center),
         halfAngle: snap.halfAngle,
