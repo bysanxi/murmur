@@ -54,6 +54,7 @@ export function createPlayer(host) {
 
   let tuning = null;
   let tuningEnabled = true;
+  let tuningSwitchOnly = false;
   let tuningLevel = 0.5;
   let pendingMode = "idle";
 
@@ -105,8 +106,14 @@ export function createPlayer(host) {
   }
 
   // Paused and blocked stay silent even if the globe or ruler is moving.
+  // Switch-only mode keeps the dial quiet too: noise belongs to the switch.
   function canTune() {
-    return tuningEnabled && state !== "paused" && state !== "blocked";
+    return (
+      tuningEnabled &&
+      !tuningSwitchOnly &&
+      state !== "paused" &&
+      state !== "blocked"
+    );
   }
 
   // A drag is itself a gesture, so it can wake a context that autoplay left
@@ -142,10 +149,23 @@ export function createPlayer(host) {
           freq = new Uint8Array(analyser.frequencyBinCount);
         }
         if (!tuning) {
-          tuning = createTuning(ctx, { volume });
+          tuning = createTuning(ctx, {
+            volume,
+            residual: mediaSource,
+            residualReady: () =>
+              audio.readyState >= 2 && !audio.paused && !audio.ended,
+          });
           tuning?.setLevel(tuningLevel);
           tuning?.setEnabled(tuningEnabled);
           tuning?.setMode(pendingMode);
+        }
+        // Idempotent: keeps the residue source attached if the graph was
+        // already wired by an earlier resume.
+        if (tuning && mediaSource) {
+          tuning.setResidual(
+            mediaSource,
+            () => audio.readyState >= 2 && !audio.paused && !audio.ended,
+          );
         }
         tapReady = true;
         return true;
@@ -219,12 +239,15 @@ export function createPlayer(host) {
     },
     /// Tuning-noise switches from the widget config.
     setTuning(next = {}) {
-      tuningEnabled = next.enabled !== false;
+      const mode = next.mode ?? (next.enabled === false ? "off" : "on");
+      tuningEnabled = mode !== "off";
+      tuningSwitchOnly = mode === "switch";
       const raw = Number(next.level);
       if (Number.isFinite(raw)) tuningLevel = Math.min(1, Math.max(0, raw));
       tuning?.setEnabled(tuningEnabled);
       tuning?.setLevel(tuningLevel);
-      if (!tuningEnabled) {
+      if (tuningSwitchOnly) tuning?.resetInput();
+      if (!tuningEnabled || tuningSwitchOnly) {
         inputActive = false;
         duckStream(1);
       }

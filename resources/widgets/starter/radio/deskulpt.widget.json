@@ -176,7 +176,11 @@
       "group": { "zh-CN": "播放", "en": "Playback" },
       "options": [
         { "value": "off", "label": { "zh-CN": "关闭", "en": "Off" } },
-        { "value": "on", "label": { "zh-CN": "开启", "en": "On" } }
+        { "value": "on", "label": { "zh-CN": "开启", "en": "On" } },
+        {
+          "value": "switch",
+          "label": { "zh-CN": "仅换台", "en": "On switch" }
+        }
       ]
     },
     {
@@ -187,8 +191,8 @@
       "min": 0,
       "max": 1,
       "step": 0.05,
-      "whenKey": "tuningNoise",
-      "whenValue": "on",
+      "unlessKey": "tuningNoise",
+      "unlessValue": "off",
       "group": { "zh-CN": "播放", "en": "Playback" }
     },
     {

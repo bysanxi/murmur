@@ -24,6 +24,11 @@ const SETTLE_HOLD_MS = 240;
 // alarm. p³ keeps it almost inaudible until the sight is really close.
 const WHISTLE_GAIN = 0.06;
 const FRAGMENT_GAIN = 0.24;
+// Real-station residue: short gates opened on the live stream, so a fragment
+// is the broadcast itself instead of a synthetic stand-in.
+const RESIDUAL_GAIN = 0.42;
+const RESIDUAL_ATTACK = 0.015;
+const RESIDUAL_RELEASE = 0.08;
 // Perceived level at the default setting. The buffer is normalised, so this
 // is the only place that has to stay conservative.
 const MASTER_GAIN = 1.15;
@@ -151,7 +156,10 @@ function buildTick(ctx) {
   return buffer;
 }
 
-export function createTuning(ctx, { volume = 0.6 } = {}) {
+export function createTuning(
+  ctx,
+  { volume = 0.6, residual = null, residualReady: isResidualReady = null } = {},
+) {
   if (!ctx) return null;
 
   let vol = clamp(volume);
@@ -171,6 +179,9 @@ export function createTuning(ctx, { volume = 0.6 } = {}) {
   let active = false;
   let nearSight = false;
   let proximity = 0;
+  let residualSource = null;
+  let residualReady = null;
+  let residualUntil = 0;
 
   const staticBuffer = buildStatic(ctx);
   const tickBuffer = buildTick(ctx);
@@ -212,6 +223,38 @@ export function createTuning(ctx, { volume = 0.6 } = {}) {
   whistleGain.connect(master);
   whistle.start();
   drift.start();
+
+  // Fragments of the real broadcast pass through a wide band pass so they
+  // read as a small receiver speaker rather than a second copy of the
+  // stream. The filter is always wired; gates open per fragment.
+  const residualFilter = ctx.createBiquadFilter();
+  residualFilter.type = "bandpass";
+  residualFilter.frequency.value = 1500;
+  residualFilter.Q.value = 0.55;
+
+  function connectResidual(node, ready) {
+    const next = node || null;
+    if (residualSource !== next) {
+      if (residualSource) {
+        try {
+          residualSource.disconnect(residualFilter);
+        } catch {
+          /* already detached */
+        }
+      }
+      residualSource = next;
+      if (residualSource) {
+        try {
+          residualSource.connect(residualFilter);
+        } catch {
+          residualSource = null;
+        }
+      }
+    }
+    residualReady = typeof ready === "function" ? ready : null;
+  }
+
+  connectResidual(residual, isResidualReady);
 
   function masterValue() {
     return enabled ? vol * level * MASTER_GAIN : 0;
@@ -352,6 +395,43 @@ export function createTuning(ctx, { volume = 0.6 } = {}) {
     });
   }
 
+  // The live station gated into short bursts. Only one at a time: two copies
+  // of the same continuous stream at different offsets would comb into an
+  // echo rather than sounding like a second station.
+  function playResidual(p) {
+    if (!residualSource || !residualReady?.()) return false;
+    const now = ctx.currentTime;
+    if (now < residualUntil - 0.02) return true;
+    const peak =
+      RESIDUAL_GAIN * (0.35 + 0.65 * p) * (0.8 + Math.random() * 0.4);
+    const dur = 0.14 + Math.random() * 0.16 + 0.08 * p;
+    const gate = ctx.createGain();
+    gate.gain.setValueAtTime(0.0001, now);
+    gate.gain.exponentialRampToValueAtTime(peak, now + RESIDUAL_ATTACK);
+    gate.gain.setValueAtTime(peak, now + dur);
+    gate.gain.exponentialRampToValueAtTime(
+      0.0001,
+      now + dur + RESIDUAL_RELEASE,
+    );
+    residualFilter.connect(gate);
+    gate.connect(master);
+    residualUntil = now + dur + RESIDUAL_RELEASE + 0.02;
+    // The gate carries its own envelope; drop the edge once it closes so a
+    // long tuning session cannot pile up nodes.
+    setTimeout(
+      () => {
+        try {
+          residualFilter.disconnect(gate);
+          gate.disconnect();
+        } catch {
+          /* context already closed */
+        }
+      },
+      (dur + RESIDUAL_RELEASE + 0.12) * 1000,
+    );
+    return true;
+  }
+
   // Fragments are scheduled from the latest proximity; intervals shorten as
   // the sight closes in. The loop only runs while a drag is live.
   function scheduleFragment() {
@@ -360,7 +440,9 @@ export function createTuning(ctx, { volume = 0.6 } = {}) {
     fragmentTimer = setTimeout(() => {
       fragmentTimer = 0;
       if (!enabled || !active) return;
-      playFragment(proximity);
+      // Prefer the real broadcast; fall back to the synthesised burst while
+      // the stream is paused, stalled, or absent.
+      if (!playResidual(proximity)) playFragment(proximity);
       scheduleFragment();
     }, nextFragmentDelay(proximity));
   }
@@ -462,6 +544,12 @@ export function createTuning(ctx, { volume = 0.6 } = {}) {
       level = clamp(next);
       applyMaster();
     },
+    /// Attach the live stream as the source of the real-station fragments.
+    /// `ready` is consulted before each burst so a paused or stalled stream
+    /// falls back to the synthesised ones.
+    setResidual(node, ready) {
+      connectResidual(node, ready);
+    },
     setEnabled(next) {
       enabled = Boolean(next);
       clearTimers();
@@ -487,6 +575,19 @@ export function createTuning(ctx, { volume = 0.6 } = {}) {
           bedTarget = 0;
           applyMix(0.1);
         }
+      }
+    },
+    /// Drop any drag/settle input without touching a connecting bed. Used
+    /// when the config switches to "only on switch" mid-gesture.
+    resetInput() {
+      clearTimeout(dragTimer);
+      dragTimer = 0;
+      dragTarget = 0;
+      clearSettle(0.08);
+      applyProximity({ dragging: false });
+      if (mode !== "connecting") {
+        bedTarget = 0;
+        applyMix(0.1);
       }
     },
     setMode(next) {
@@ -563,6 +664,14 @@ export function createTuning(ctx, { volume = 0.6 } = {}) {
       } catch {
         /* already torn down */
       }
+      try {
+        residualSource?.disconnect(residualFilter);
+        residualFilter.disconnect();
+      } catch {
+        /* already torn down */
+      }
+      residualSource = null;
+      residualReady = null;
       enabled = false;
     },
   };

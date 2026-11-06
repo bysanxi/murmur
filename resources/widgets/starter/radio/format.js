@@ -146,14 +146,13 @@ export function volumeOf(config) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.6;
 }
 
-/// Tuning noise is on unless explicitly switched off; older configs have no
-/// key and should still get the default.
-export function tuningNoiseOf(config) {
-  return (
-    config?.tuningNoise !== "off" &&
-    config?.tuningNoise !== false &&
-    config?.tuningNoise !== "false"
-  );
+/// Tuning noise mode: "off" | "on" | "switch". Older configs have no key
+/// and should still get the full default; legacy booleans map to on/off.
+export function tuningNoiseModeOf(config) {
+  const value = config?.tuningNoise;
+  if (value === "off" || value === false || value === "false") return "off";
+  if (value === "switch") return "switch";
+  return "on";
 }
 
 export function tuningNoiseLevelOf(config) {

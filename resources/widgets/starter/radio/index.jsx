@@ -32,7 +32,7 @@ import {
   subscribeLanguage,
   touchOf,
   tuningNoiseLevelOf,
-  tuningNoiseOf,
+  tuningNoiseModeOf,
   volumeOf,
 } from "./format.js";
 
@@ -277,7 +277,7 @@ function Radio({ config, id, width, height }) {
 
   useEffect(() => {
     playerRef.current?.setTuning({
-      enabled: tuningNoiseOf(configRef.current),
+      mode: tuningNoiseModeOf(configRef.current),
       level: tuningNoiseLevelOf(configRef.current),
     });
   }, [config?.tuningNoise, config?.tuningNoiseLevel]);
