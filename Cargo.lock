@@ -1363,7 +1363,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "ico",
  "image",
@@ -1382,7 +1382,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt-common"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "deskulpt-macros",
@@ -1393,7 +1393,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt-macros"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "heck 0.5.0",
  "quote",
@@ -1402,7 +1402,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt-plugin"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "deskulpt-plugin-macros",
@@ -1412,7 +1412,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt-plugin-fs"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "deskulpt-plugin",
@@ -1421,7 +1421,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt-plugin-macros"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "quote",
  "syn 2.0.117",
@@ -1429,7 +1429,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt-plugin-sys"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "deskulpt-plugin",
@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "deskulpt-workspace"
-version = "0.3.1"
+version = "0.3.2"
 
 [[package]]
 name = "digest"
@@ -6845,7 +6845,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-deskulpt-build"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "quote",
@@ -6913,7 +6913,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-deskulpt-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "deskulpt-common",
@@ -6943,7 +6943,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-deskulpt-logs"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "deskulpt-common",
@@ -6960,7 +6960,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-deskulpt-settings"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "deskulpt-common",
@@ -6979,7 +6979,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-deskulpt-widgets"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "astral-tokio-tar",
@@ -9030,7 +9030,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xtask"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "clap",
