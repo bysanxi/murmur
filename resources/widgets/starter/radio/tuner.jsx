@@ -1,8 +1,8 @@
 // The tuner under the globe: the longitude ruler of stations, and the
-// controls beneath it — west, play or pause, a random pick, and the star
-// that saves the station on air. The wide face drops the ruler and
-// left-aligns that same row; the star joins it on the left when the ruler
-// shows, on the right when it does not.
+// controls — west, play or pause, a random pick, and the star that saves
+// the station on air. The wide face drops the ruler and places that same
+// row just after the station name. The star stays on the left, as it does
+// when the ruler is showing.
 
 import { useEffect, useMemo, useRef, useState } from "@deskulpt-test/react";
 import { Flex } from "@deskulpt-test/ui";
@@ -54,9 +54,18 @@ export function Tuner({
   const [wide, setWide] = useState(false);
 
   useEffect(() => {
-    const el = hostRef.current;
+    // The wide row is lifted out of this box (display:contents) so it can
+    // sit beside the station name. Measure the face, which keeps its box.
+    const el = hostRef.current?.parentElement;
     if (!el) return;
-    const sync = () => setWide(el.clientWidth >= WIDE_AT);
+    const sync = () => {
+      const style = getComputedStyle(el);
+      const pad =
+        Number.parseFloat(style.paddingLeft) +
+        Number.parseFloat(style.paddingRight);
+      const inner = el.clientWidth - (Number.isFinite(pad) ? pad : 0);
+      setWide(inner >= WIDE_AT);
+    };
     sync();
     const ro = new ResizeObserver(sync);
     ro.observe(el);
@@ -115,10 +124,25 @@ export function Tuner({
     <Flex
       align="center"
       width={stripWide ? undefined : "100%"}
-      pt={stripWide ? "3" : "1"}
-      style={stripWide ? { gap: 16 } : undefined}
+      pt={stripWide ? "0" : "1"}
+      ref={(node) => {
+        if (!node) return;
+        if (stripWide) node.dataset.stationControls = "";
+        else delete node.dataset.stationControls;
+      }}
+      style={
+        stripWide
+          ? {
+              gap: 16,
+              gridColumn: "2",
+              gridRow: "2",
+              alignSelf: "center",
+              flexShrink: 0,
+            }
+          : undefined
+      }
     >
-      {!stripWide && favoriteButton}
+      {favoriteButton}
       <button
         type="button"
         onClick={() => west && onPick(west)}
@@ -144,12 +168,18 @@ export function Tuner({
       >
         <ShuffleIcon />
       </button>
-      {stripWide && favoriteButton}
     </Flex>
   );
 
   return (
-    <div ref={hostRef} style={{ width: "100%" }}>
+    <div
+      ref={hostRef}
+      style={
+        stripWide
+          ? { display: "contents" }
+          : { width: "100%", gridColumn: "1 / -1" }
+      }
+    >
       {(!stripWide || keepRuler) && (
         <Ruler
           stations={stations}

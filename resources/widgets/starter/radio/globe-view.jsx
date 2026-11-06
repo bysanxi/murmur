@@ -3,7 +3,13 @@
 // big type, a longitude ruler, and the playback controls. A short or
 // narrow card keeps that same strip and drops only the globe.
 
-import { useEffect, useMemo, useRef, useState } from "@deskulpt-test/react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "@deskulpt-test/react";
 import { Flex, Text } from "@deskulpt-test/ui";
 import { createGlobe } from "./globe.js";
 import { LibrarySheet } from "./library-sheet.jsx";
@@ -91,12 +97,51 @@ export function GlobeView({
   onWake,
 }) {
   const hostRef = useRef(null);
+  const faceRef = useRef(null);
+  const nameRef = useRef(null);
   const globeRef = useRef(null);
   const tapRef = useRef(null);
   const levelsRef = useRef(getAudioLevels);
   const sightRef = useRef(onSight);
   const [compact, setCompact] = useState(false);
   const [hot, setHot] = useState(false);
+
+  // Wide controls sit in the next grid cell. Size the name to its condensed
+  // glyphs so that cell starts just after the text, then ellipsize if the
+  // row runs out of room.
+  useLayoutEffect(() => {
+    const face = faceRef.current;
+    const nameEl = nameRef.current;
+    const text = nameEl?.querySelector("[data-station-name]");
+    if (!face || !nameEl || !text) return;
+    const fit = () => {
+      const controls = face.querySelector("[data-station-controls]");
+      if (!controls) {
+        nameEl.style.gridColumn = "1 / -1";
+        nameEl.style.width = "100%";
+        text.style.width = "calc(100% / 0.74)";
+        return;
+      }
+      nameEl.style.gridColumn = "1";
+      nameEl.style.alignSelf = "center";
+      text.style.width = "max-content";
+      nameEl.style.width = "max-content";
+      const natural = text.offsetWidth;
+      const boxStyle = getComputedStyle(face);
+      const pad =
+        Number.parseFloat(boxStyle.paddingLeft) +
+        Number.parseFloat(boxStyle.paddingRight);
+      const grid = face.clientWidth - (Number.isFinite(pad) ? pad : 0);
+      const available = Math.max(0, grid - controls.offsetWidth - 16);
+      const box = Math.min(natural * 0.74, available);
+      nameEl.style.width = `${box}px`;
+      text.style.width = `${box / 0.74}px`;
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(face);
+    return () => ro.disconnect();
+  });
 
   // Status, station name, and the detail line. The ruler keeps its own face.
   // Subsets load as the glyphs show up; until then those lines use the
@@ -341,8 +386,19 @@ export function GlobeView({
         px="4"
         pt={showMeta ? "2" : "1"}
         pb="3"
+        ref={faceRef}
         data-station-face="true"
-        style={{ position: "relative", flexShrink: 0 }}
+        style={{
+          position: "relative",
+          flexShrink: 0,
+          display: "grid",
+          // The last track fills the row, so a narrow ruler still spans the
+          // face. Without it the tracks stop at the station name.
+          gridTemplateColumns: "minmax(0, max-content) auto minmax(0, 1fr)",
+          justifyContent: "start",
+          alignItems: "center",
+          columnGap: 16,
+        }}
       >
         {showMeta && (
           <>
@@ -350,7 +406,7 @@ export function GlobeView({
               align="center"
               gap="2"
               data-station-status="true"
-              style={{ minHeight: 16 }}
+              style={{ minHeight: 16, gridColumn: "1 / -1" }}
             >
               <span
                 style={{
@@ -374,36 +430,42 @@ export function GlobeView({
                 {statusText}
               </Text>
             </Flex>
-            <Text
-              size="7"
-              style={{
-                display: "block",
-                width: "100%",
-                overflow: "hidden",
-                color: TYPE.name,
-                lineHeight: 1.15,
-                fontFamily: '"IBM Plex Sans SC", sans-serif',
-                fontWeight: 500,
-              }}
+            <div
+              ref={nameRef}
+              style={{ gridColumn: "1", minWidth: 0, overflow: "hidden" }}
             >
-              <span
+              <Text
+                size="7"
                 style={{
                   display: "block",
-                  width: "calc(100% / 0.74)",
-                  whiteSpace: "nowrap",
+                  width: "100%",
                   overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  transform: "scaleX(0.74)",
-                  transformOrigin: "left center",
+                  color: TYPE.name,
+                  lineHeight: 1.15,
+                  fontFamily: '"IBM Plex Sans SC", sans-serif',
+                  fontWeight: 500,
                 }}
               >
-                {station?.name || statusLine || strings.tuning}
-              </span>
-            </Text>
+                <span
+                  data-station-name=""
+                  style={{
+                    display: "block",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    transform: "scaleX(0.74)",
+                    transformOrigin: "left center",
+                  }}
+                >
+                  {station?.name || statusLine || strings.tuning}
+                </span>
+              </Text>
+            </div>
             {detail && (
               <Text
                 size="1"
                 style={{
+                  gridColumn: "1 / -1",
                   color: TYPE.detail,
                   ...ELLIPSIS,
                   fontFamily: '"IBM Plex Sans SC", sans-serif',
