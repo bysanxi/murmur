@@ -86,7 +86,7 @@ export function mountPond(host, config, id) {
   );
   const styleName =
     config && typeof config.style === "string" ? config.style : "";
-  let style = PondStyles[styleName] || PondStyles.real;
+  let style = PondStyles[styleName] || PondStyles.xieyi;
   const spriteCaches = new Map();
   let sprites = style.art.miscSprites();
   let view = canvas;

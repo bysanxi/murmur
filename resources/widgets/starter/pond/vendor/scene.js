@@ -4,7 +4,7 @@
   const { fishPalette, BODY, clamp, wrap, fishPose } = root.PondCore;
   const { halfWidth, girthOf } = root.PondArt;
   const TAU = Math.PI * 2;
-  let style = root.PondStyles.real;
+  let style = root.PondStyles.xieyi;
   const floaters = () => style.bed.floaters;
   const homes = () => style.bed.crabHomes;
   const lotusBeds = () => floaters().filter((f) => f[3] === "f" && f[2] > 25);

@@ -10,6 +10,7 @@
   "width": 3840,
   "height": 2160,
   "zIndex": -1,
+  "loaded": false,
   "options": [
     {
       "key": "turtles",
@@ -71,7 +72,7 @@
       "key": "style",
       "label": { "zh-CN": "画风", "en": "Style" },
       "type": "select",
-      "default": "real",
+      "default": "xieyi",
       "group": { "zh-CN": "画面", "en": "Scene" },
       "options": [
         { "value": "real", "label": { "zh-CN": "写实", "en": "Realistic" } },

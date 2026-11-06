@@ -91,6 +91,11 @@ pub struct WidgetManifest {
     /// Initial z-index. This is the default for the shared z-index setting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub z_index: Option<i16>,
+    /// Whether the widget is on the canvas when it is first added.
+    ///
+    /// Missing means loaded, so existing manifests stay on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loaded: Option<bool>,
     /// Settings this widget declares for itself.
     ///
     /// Shared layout settings live on [`WidgetSettings`]. These are extra
@@ -429,6 +434,9 @@ impl WidgetSettings {
         }
         if let Some(z_index) = manifest.z_index {
             settings.z_index = z_index.clamp(-999, 999);
+        }
+        if let Some(loaded) = manifest.loaded {
+            settings.is_loaded = loaded;
         }
         settings
     }
