@@ -6,6 +6,14 @@
 import { useEffect, useMemo, useRef, useState } from "@deskulpt-test/react";
 import { Flex, Text } from "@deskulpt-test/ui";
 import { createGlobe } from "./globe.js";
+import {
+  FAVORITES_EASE_IN,
+  FAVORITES_EASE_OUT,
+  FAVORITES_ENTER_MS,
+  FAVORITES_EXIT_MS,
+  FavoritesBox,
+} from "./favorites-box.jsx";
+import { usePresence } from "./presence.js";
 import { SearchBox } from "./search-box.jsx";
 import { Tuner } from "./tuner.jsx";
 import { ELLIPSIS, coordOf, lockMetaOf } from "./format.js";
@@ -55,6 +63,8 @@ const TYPE = {
   coords: "rgba(255,255,255,.55)",
 };
 
+// The dim follows the panel so the two don't finish on different beats.
+
 export function GlobeView({
   id,
   strings,
@@ -77,6 +87,11 @@ export function GlobeView({
   httpsOnly,
   cacheOn,
   cacheEpoch,
+  favorites,
+  favoriteActive,
+  onToggleFavorite,
+  onRemoveFavorite,
+  width,
   getAudioLevels,
   onSurfacePointerDown,
   onToggle,
@@ -92,6 +107,8 @@ export function GlobeView({
   const sightRef = useRef(onSight);
   const [compact, setCompact] = useState(false);
   const [hot, setHot] = useState(false);
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const mask = usePresence(favoritesOpen, FAVORITES_EXIT_MS);
 
   // Status, station name, and the detail line. The ruler keeps its own face.
   // Subsets load as the glyphs show up; until then those lines use the
@@ -258,7 +275,8 @@ export function GlobeView({
           event.button === 0 &&
           !event.target.closest("button") &&
           !event.target.closest("[data-globe]") &&
-          !event.target.closest("[data-search]")
+          !event.target.closest("[data-search]") &&
+          !event.target.closest("[data-favorites]")
         ) {
           globeRef.current?.noteExplicitTune(station);
         }
@@ -407,10 +425,12 @@ export function GlobeView({
           pool={markers}
           live={live}
           strings={strings}
+          favoriteActive={favoriteActive}
           onToggle={onToggle}
           onPick={pickExplicit}
           onScrub={onScrub}
           onWake={onWake}
+          onToggleFavorite={onToggleFavorite}
           keepRuler={!showMeta}
         />
       </Flex>
@@ -423,6 +443,47 @@ export function GlobeView({
         cacheOn={cacheOn}
         cacheEpoch={cacheEpoch}
         onPick={pickExplicit}
+        right={50}
+      />
+      {mask.mounted && (
+        <div
+          aria-hidden="true"
+          onClick={() => setFavoritesOpen(false)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 6,
+            borderRadius: 12,
+            opacity: mask.shown ? 1 : 0,
+            pointerEvents: mask.shown ? "auto" : "none",
+            transition: `opacity ${
+              mask.shown ? FAVORITES_ENTER_MS : FAVORITES_EXIT_MS
+            }ms ${mask.shown ? FAVORITES_EASE_OUT : FAVORITES_EASE_IN}`,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: 12,
+              background: "rgba(2,3,8,0.52)",
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
+            }}
+          />
+        </div>
+      )}
+      <FavoritesBox
+        strings={strings}
+        station={station}
+        favorites={favorites}
+        httpsOnly={httpsOnly}
+        hot={hot}
+        width={width}
+        open={favoritesOpen}
+        onOpenChange={setFavoritesOpen}
+        onPick={pickExplicit}
+        onRemoveFavorite={onRemoveFavorite}
       />
     </Flex>
   );

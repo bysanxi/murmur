@@ -59,6 +59,34 @@ export function SearchIcon({ size = 15 }) {
   );
 }
 
+// Favorites: an outline star, filled once the station is saved.
+export function StarIcon({ size = 15, filled = false }) {
+  return (
+    <svg
+      {...STROKE}
+      width={size}
+      height={size}
+      fill={filled ? "currentColor" : "none"}
+    >
+      <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.395 20.82a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.604a.53.53 0 0 1 .294-.904l5.166-.756a2.122 2.122 0 0 0 1.595-1.16z" />
+    </svg>
+  );
+}
+
+// The top-right list entry: saved stations, not the star switch below.
+export function ListIcon({ size = 15 }) {
+  return (
+    <svg {...STROKE} width={size} height={size}>
+      <path d="M3 6h.01" />
+      <path d="M3 12h.01" />
+      <path d="M3 18h.01" />
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+    </svg>
+  );
+}
+
 export function ShuffleIcon({ size = 18 }) {
   return (
     <svg {...STROKE} width={size} height={size}>

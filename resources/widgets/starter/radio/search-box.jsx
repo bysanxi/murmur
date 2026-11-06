@@ -8,20 +8,12 @@ import { useEffect, useRef, useState } from "@deskulpt-test/react";
 import { ClearIcon, SearchIcon } from "./icons.jsx";
 import { catalogForSearch } from "./stations.js";
 import { compileStations, searchCompiled } from "./search.js";
+import { flagOf } from "./format.js";
 
 const DEBOUNCE_MS = 120;
 const PAGE = 40;
 const LOAD_NEAR = 80;
 const EMPTY = { countries: [], stations: [] };
-
-function flagOf(code) {
-  const cc = String(code || "").toUpperCase();
-  if (!/^[A-Z]{2}$/.test(cc)) return "";
-  return String.fromCodePoint(
-    0x1f1e6 + cc.codePointAt(0) - 65,
-    0x1f1e6 + cc.codePointAt(1) - 65,
-  );
-}
 
 const SLIDE_MS = 180;
 
@@ -34,6 +26,7 @@ export function SearchBox({
   cacheOn,
   cacheEpoch,
   onPick,
+  right = 12,
 }) {
   const inputRef = useRef(null);
   const boxRef = useRef(null);
@@ -176,9 +169,9 @@ export function SearchBox({
       style={{
         position: "absolute",
         top: 10,
-        right: 12,
+        right,
         zIndex: 6,
-        width: expanded ? "min(280px, calc(100% - 24px))" : 32,
+        width: expanded ? `min(280px, calc(100% - ${right + 12}px))` : 32,
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? "auto" : "none",
         transition: `width ${SLIDE_MS}ms ease, opacity 160ms ease`,

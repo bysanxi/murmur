@@ -1,10 +1,18 @@
 // The tuner under the globe: the longitude ruler of stations, and the
-// three controls beneath it — west, play or pause, and a random pick.
-// A wide panel drops the ruler and left-aligns that same row.
+// controls beneath it — west, play or pause, a random pick, and the star
+// that saves the station on air. The wide face drops the ruler and
+// left-aligns that same row; the star joins it on the left when the ruler
+// shows, on the right when it does not.
 
 import { useEffect, useMemo, useRef, useState } from "@deskulpt-test/react";
 import { Flex } from "@deskulpt-test/ui";
-import { PauseIcon, PlayIcon, ShuffleIcon, SkipBackIcon } from "./icons.jsx";
+import {
+  PauseIcon,
+  PlayIcon,
+  ShuffleIcon,
+  SkipBackIcon,
+  StarIcon,
+} from "./icons.jsx";
 import { Ruler } from "./ruler.jsx";
 
 const WIDE_AT = 520;
@@ -34,10 +42,12 @@ export function Tuner({
   pool,
   live,
   strings,
+  favoriteActive,
   onToggle,
   onPick,
   onScrub,
   onWake,
+  onToggleFavorite,
   keepRuler = false,
 }) {
   const hostRef = useRef(null);
@@ -86,6 +96,21 @@ export function Tuner({
 
   const stripWide = wide && !keepRuler;
   const btn = stripWide ? WIDE_BTN : ICON_BTN;
+  const favoriteLabel = favoriteActive
+    ? strings.favoriteRemove
+    : strings.favoriteCurrent;
+  const favoriteButton = (
+    <button
+      type="button"
+      onClick={() => station && onToggleFavorite?.(!favoriteActive)}
+      disabled={!station}
+      aria-label={favoriteLabel}
+      title={favoriteLabel}
+      style={{ ...btn, opacity: station ? 1 : 0.35 }}
+    >
+      <StarIcon size={18} filled={favoriteActive} />
+    </button>
+  );
   const controls = (
     <Flex
       align="center"
@@ -93,6 +118,7 @@ export function Tuner({
       pt={stripWide ? "3" : "1"}
       style={stripWide ? { gap: 16 } : undefined}
     >
+      {!stripWide && favoriteButton}
       <button
         type="button"
         onClick={() => west && onPick(west)}
@@ -118,6 +144,7 @@ export function Tuner({
       >
         <ShuffleIcon />
       </button>
+      {stripWide && favoriteButton}
     </Flex>
   );
 

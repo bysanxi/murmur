@@ -27,6 +27,12 @@ export const STRINGS = {
     searchClear: "清除",
     noHit: "没有找到，换个关键词",
     searchCountry: "国 · {n} 局",
+    favorites: "收藏",
+    favoritesCount: "{n} 台",
+    favoritesEmpty: "还没有收藏的电台",
+    favoriteCurrent: "收藏当前电台",
+    favoriteRemove: "取消收藏",
+    favoriteNeedsHttps: "需要 HTTPS",
   },
   en: {
     tuning: "Tuning in…",
@@ -52,6 +58,12 @@ export const STRINGS = {
     searchClear: "Clear",
     noHit: "Nothing found. Try another word.",
     searchCountry: "Country · {n}",
+    favorites: "Favorites",
+    favoritesCount: "{n} saved",
+    favoritesEmpty: "No favorites yet",
+    favoriteCurrent: "Save current station",
+    favoriteRemove: "Remove from favorites",
+    favoriteNeedsHttps: "Needs HTTPS",
   },
 };
 
@@ -60,6 +72,16 @@ export const ELLIPSIS = {
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
+
+/// "🇨🇳" for a two-letter country code, or "" when it is not one.
+export function flagOf(code) {
+  const cc = String(code || "").toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return "";
+  return String.fromCodePoint(
+    0x1f1e6 + cc.codePointAt(0) - 65,
+    0x1f1e6 + cc.codePointAt(1) - 65,
+  );
+}
 
 export function readLanguage() {
   try {

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "@deskulpt-test/react";
 import { countListen, createQueue, syncStationCache } from "./stations.js";
-import { lastStationFits, loadRadioState, rememberStation } from "./state.js";
+import {
+  isFavorite,
+  lastStationFits,
+  loadRadioState,
+  rememberStation,
+  removeFavorite,
+  toggleFavorite,
+} from "./state.js";
 import { localTimeOf, lookupGeo } from "./geo.js";
 import { createPlayer } from "./player.js";
 import { GlobeView } from "./globe-view.jsx";
@@ -58,6 +65,7 @@ function Radio({ config, id, width, height }) {
   const [upcoming, setUpcoming] = useState([]);
   const [cacheNote, setCacheNote] = useState("");
   const [cacheEpoch, setCacheEpoch] = useState(0);
+  const [favorites, setFavorites] = useState([]);
   const playerRef = useRef(null);
   const queueRef = useRef(null);
   const feedRef = useRef([]);
@@ -143,6 +151,18 @@ function Radio({ config, id, width, height }) {
     await playNextRef.current();
   };
 
+  const handleToggleFavorite = async (favorite) => {
+    const current = stationRef.current;
+    if (!current?.uuid) return;
+    const list = await toggleFavorite(current, favorite);
+    setFavorites(list);
+  };
+
+  const handleRemoveFavorite = async (uuid) => {
+    const list = await removeFavorite(uuid);
+    setFavorites(list);
+  };
+
   // One physical click reaches the component twice on an interactive
   // canvas: as a native pointer event and as the wallpaper tap the hook
   // forwards. Both paths land here, and the window keeps them to one.
@@ -201,6 +221,9 @@ function Radio({ config, id, width, height }) {
     queueRef.current = createQueue(filterOf(configRef.current));
     void (async () => {
       const saved = await loadRadioState();
+      if (alive) {
+        setFavorites(Array.isArray(saved.favorites) ? saved.favorites : []);
+      }
       const player = playerRef.current;
       if (!alive || !player || !queueRef.current) return;
       const last = saved.lastStation;
@@ -351,6 +374,7 @@ function Radio({ config, id, width, height }) {
         hit?.closest("button") ||
         hit?.closest("[data-globe]") ||
         hit?.closest("[data-search]") ||
+        hit?.closest("[data-favorites]") ||
         hit?.closest("input")
       )
         return;
@@ -368,6 +392,7 @@ function Radio({ config, id, width, height }) {
 
   const strings = STRINGS[language] ?? STRINGS["zh-CN"];
   const live = status === "playing";
+  const favoriteActive = isFavorite(favorites, station?.uuid);
   const statusLine = statusTextOf(status, strings);
   const place = placeOf(station, geo);
   const time = localTimeOf(geo?.tz, now);
@@ -382,6 +407,7 @@ function Radio({ config, id, width, height }) {
     if (event.target.closest("button")) return;
     if (event.target.closest("[data-globe]")) return;
     if (event.target.closest("[data-search]")) return;
+    if (event.target.closest("[data-favorites]")) return;
     handleTapRef.current();
   };
 
@@ -420,6 +446,11 @@ function Radio({ config, id, width, height }) {
         httpsOnly={config?.httpsOnly !== false}
         cacheOn={cacheCatalogOf(config)}
         cacheEpoch={cacheEpoch}
+        favorites={favorites}
+        favoriteActive={favoriteActive}
+        onToggleFavorite={handleToggleFavorite}
+        onRemoveFavorite={handleRemoveFavorite}
+        width={width}
         getAudioLevels={() =>
           playerRef.current?.levels?.() ?? { level: 0, bass: 0 }
         }
