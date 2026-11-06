@@ -318,8 +318,9 @@ export function LibrarySheet({
       onPointerDown={(event) => event.stopPropagation()}
       style={{
         position: "absolute",
-        top: 10,
-        right: EDGE,
+        // Clear the window's 20px corner handle so that corner can still resize.
+        top: 20,
+        right: 20,
         zIndex: 7,
         width: open ? span : "auto",
         opacity: visible ? 1 : 0,

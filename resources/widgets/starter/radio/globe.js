@@ -149,6 +149,10 @@ export function createGlobe(host) {
   let pixelRatio = 1;
   let rimBoost = false;
   let levelProvider = null; // () => { level, bass }
+  // Filled in once the camera state exists. Resize runs after the frame
+  // was already drawn and assigning the buffer clears it, so the callback
+  // paints again before the browser shows that empty frame.
+  let paint = null;
 
   function resize() {
     const nextRatio = Math.min(window.devicePixelRatio || 1, 2);
@@ -169,6 +173,7 @@ export function createGlobe(host) {
     makeProjection(width / height, proj);
     bloom?.resize(canvas.width, canvas.height);
     gl.viewport(0, 0, canvas.width, canvas.height);
+    paint?.(performance.now());
   }
 
   const observer = new ResizeObserver(resize);
@@ -496,40 +501,7 @@ export function createGlobe(host) {
     // Keep the aim sun on the fan slot when the city is spread.
     const sun = pins.sunPos();
     if (sun) stationPos = sun;
-    const offscreen = bloom?.begin();
-    if (!offscreen) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-    gl.disable(gl.DEPTH_TEST);
-    gl.useProgram(program);
-    gl.uniformMatrix4fv(uProj, false, proj);
-    gl.uniformMatrix3fv(uRot, false, rotation(yaw, pitch, rot));
-    gl.uniform1f(uPixelRatio, pixelRatio);
-    // RoamDial is fullscreen (~500px globe). Widget globes are much
-    // smaller, so a 2px spark becomes a blob. Scale pins to globe pixels.
-    const globePx =
-      (0.5 * Math.min(canvas.width, canvas.height)) / (Math.tan(FOV / 2) * eye);
-    gl.uniform1f(uPinScale, Math.max(0.55, Math.min(1.25, globePx / 360)));
-    gl.uniform1f(uTime, now / 1000);
-    gl.uniform1f(uEye, eye);
-    // roamdial land ink — dark teal-grey; bloom lifts the coasts.
-    gl.uniform3f(uColor, 0.07, 0.1, 0.09);
-    gl.uniform3f(uStationColor, 1.0, 0.74, 0.45);
-    gl.uniform1f(uHasStation, stationPos ? 1 : 0);
-    gl.uniform1f(uRimBoost, rimBoost ? 1 : 0);
-    gl.uniform1f(uFanMix, pins.spreadMix);
-    const audio = levelProvider?.() ?? { level: 0, bass: 0 };
-    gl.uniform1f(uLevel, audio.level || 0);
-    gl.uniform1f(uBass, audio.bass || 0);
-    gl.bindVertexArray(landVao);
-    gl.drawArrays(gl.POINTS, 0, landCount);
-    gl.bindVertexArray(pins.vao);
-    gl.drawArrays(gl.POINTS, 0, pins.drawCount);
-    gl.bindVertexArray(null);
-    if (offscreen) bloom.composite(now / 1000);
+    paint(now);
     updateAim(dt);
     // The sight has just refreshed aimProgress, so this is the freshest
     // proximity the tuning bed can get. Idle frames stay quiet, which also
@@ -573,6 +545,43 @@ export function createGlobe(host) {
     }
     requestAnimationFrame(frame);
   }
+  paint = (now) => {
+    const offscreen = bloom?.begin();
+    if (!offscreen) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    gl.disable(gl.DEPTH_TEST);
+    gl.useProgram(program);
+    gl.uniformMatrix4fv(uProj, false, proj);
+    gl.uniformMatrix3fv(uRot, false, rotation(yaw, pitch, rot));
+    gl.uniform1f(uPixelRatio, pixelRatio);
+    // RoamDial is fullscreen (~500px globe). Widget globes are much
+    // smaller, so a 2px spark becomes a blob. Scale pins to globe pixels.
+    const globePx =
+      (0.5 * Math.min(canvas.width, canvas.height)) / (Math.tan(FOV / 2) * eye);
+    gl.uniform1f(uPinScale, Math.max(0.55, Math.min(1.25, globePx / 360)));
+    gl.uniform1f(uTime, now / 1000);
+    gl.uniform1f(uEye, eye);
+    // roamdial land ink — dark teal-grey; bloom lifts the coasts.
+    gl.uniform3f(uColor, 0.07, 0.1, 0.09);
+    gl.uniform3f(uStationColor, 1.0, 0.74, 0.45);
+    gl.uniform1f(uHasStation, stationPos ? 1 : 0);
+    gl.uniform1f(uRimBoost, rimBoost ? 1 : 0);
+    gl.uniform1f(uFanMix, pins.spreadMix);
+    const audio = levelProvider?.() ?? { level: 0, bass: 0 };
+    gl.uniform1f(uLevel, audio.level || 0);
+    gl.uniform1f(uBass, audio.bass || 0);
+    gl.bindVertexArray(landVao);
+    gl.drawArrays(gl.POINTS, 0, landCount);
+    gl.bindVertexArray(pins.vao);
+    gl.drawArrays(gl.POINTS, 0, pins.drawCount);
+    gl.bindVertexArray(null);
+    if (offscreen) bloom.composite(now / 1000);
+  };
+
   requestAnimationFrame(frame);
   requestAnimationFrame(() => (canvas.style.opacity = "1"));
 

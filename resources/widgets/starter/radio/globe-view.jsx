@@ -170,7 +170,7 @@ export function GlobeView({
       return { title, meta: nearby, hot: close };
     });
     globeRef.current?.setOnAim(onPick);
-  }, [strings, onPick, station]);
+  }, [strings, onPick, station, showGlobe]);
 
   // Dial / skip / random / pin tap: explicit tune. The globe follows
   // and auto-aim stays off until the user drags the globe again.
@@ -233,17 +233,20 @@ export function GlobeView({
     }
     return list;
   }, [markers, upcoming, station]);
+  // Re-apply when the globe is created again. Crossing the size threshold
+  // destroys the canvas, and a fresh one has land but no station pins
+  // until this runs — which is why a ruler drag appeared to bring them back.
   useEffect(() => {
     globeRef.current?.setMarkers(pins);
-  }, [pins]);
+  }, [pins, showGlobe]);
 
   useEffect(() => {
     globeRef.current?.setSpin(spin);
-  }, [spin]);
+  }, [spin, showGlobe]);
 
   useEffect(() => {
     globeRef.current?.setRimBoost(rimBoost);
-  }, [rimBoost]);
+  }, [rimBoost, showGlobe]);
 
   const statusText = [live ? "ON AIR" : statusLine, cacheNote, place, time]
     .filter(Boolean)
@@ -300,7 +303,6 @@ export function GlobeView({
           onPointerCancel={() => (tapRef.current = null)}
           style={{
             position: "relative",
-            zIndex: 1,
             flex: "1 1 auto",
             minHeight: 0,
           }}
@@ -340,7 +342,7 @@ export function GlobeView({
         pt={showMeta ? "2" : "1"}
         pb="3"
         data-station-face="true"
-        style={{ position: "relative", zIndex: 1, flexShrink: 0 }}
+        style={{ position: "relative", flexShrink: 0 }}
       >
         {showMeta && (
           <>
