@@ -1,11 +1,13 @@
 // One sheet for finding a station. Search and favorites are the same
 // field and the same list; the tab only changes which set the query runs on.
-// The sheet is a single translucent surface — no second dimmer behind it.
+// The sheet is a single translucent surface — no second dimmer behind it —
+// and it eases out of the corner icon instead of popping in and out.
 
 import { useEffect, useRef, useState } from "@deskulpt-test/react";
 import { ClearIcon, SearchIcon } from "./icons.jsx";
 import { flagOf } from "./format.js";
 import { genreColorOf } from "./genre-color.js";
+import { usePresence } from "./presence.js";
 import { favoriteFits } from "./state.js";
 import { catalogForSearch } from "./stations.js";
 import { compileStations, searchCompiled } from "./search.js";
@@ -14,6 +16,12 @@ const EDGE = 12;
 const WIDE_AT = 520;
 const SHEET_MAX = WIDE_AT - EDGE * 2;
 const STATUS_GAP = 12;
+const FADE_MS = 120;
+const ENTER_MS = 210;
+const EXIT_MS = 150;
+const EASE_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
+const EASE_IN = "cubic-bezier(0.4, 0, 0.2, 1)";
+const LIST_IN_MS = 110;
 const DEBOUNCE_MS = 120;
 const PAGE = 40;
 const LOAD_NEAR = 80;
@@ -22,6 +30,21 @@ const EMPTY = { countries: [], stations: [] };
 function sheetWidth(viewport) {
   const width = Number.isFinite(viewport) ? viewport : 480;
   return Math.min(Math.max(width - EDGE * 2, 0), SHEET_MAX);
+}
+
+// Drops out of the icon on the same curve in both directions, so closing
+// reads as the sheet sinking back rather than blinking away.
+function panelMotion(shown) {
+  const ms = shown ? ENTER_MS : EXIT_MS;
+  const ease = shown ? EASE_OUT : EASE_IN;
+  return {
+    opacity: shown ? 1 : 0,
+    transform: shown
+      ? "translate3d(0, 0, 0) scale(1)"
+      : "translate3d(0, -10px, 0) scale(0.97)",
+    pointerEvents: shown ? "auto" : "none",
+    transition: `opacity ${ms}ms ${ease}, transform ${ms}ms ${ease}`,
+  };
 }
 
 function widgetOf(node) {
@@ -118,8 +141,17 @@ export function LibrarySheet({
   const [hover, setHover] = useState(-1);
   const [maxHeight, setMaxHeight] = useState(null);
 
-  const open = mode != null;
+  const open = mode !== null;
   const span = sheetWidth(width);
+  const panel = usePresence(open, EXIT_MS);
+
+  // While closing, `mode` is already null but the sheet is still fading.
+  // Keep the last tab and its rows on screen until the exit finishes.
+  const lastMode = useRef(mode);
+  useEffect(() => {
+    if (mode !== null) lastMode.current = mode;
+  }, [mode]);
+  const shownMode = mode ?? lastMode.current;
 
   useEffect(() => {
     let alive = true;
@@ -158,10 +190,13 @@ export function LibrarySheet({
   }, [mode, query, ready, language]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      inputRef.current?.blur();
+      return;
+    }
     const frame = requestAnimationFrame(() => inputRef.current?.focus());
     return () => cancelAnimationFrame(frame);
-  }, [open, mode]);
+  }, [open, mode, panel.mounted]);
 
   useEffect(() => {
     if (!open) return;
@@ -213,7 +248,12 @@ export function LibrarySheet({
       if (!panel || !host) return;
       const status = host.querySelector("[data-station-status]");
       const face = host.querySelector("[data-station-face]");
-      const top = panel.getBoundingClientRect().top;
+      // Layout offset, not the animated rect: the enter transition shifts
+      // the panel up a few pixels and would otherwise skew the ceiling.
+      const root = rootRef.current;
+      const top = root
+        ? root.getBoundingClientRect().top + panel.offsetTop
+        : panel.getBoundingClientRect().top;
       let limit = null;
       if (!showGlobe && face) limit = face.getBoundingClientRect().bottom;
       else if (status) limit = status.getBoundingClientRect().top - STATUS_GAP;
@@ -230,20 +270,20 @@ export function LibrarySheet({
       cancelAnimationFrame(frame);
       ro.disconnect();
     };
-  }, [open, showGlobe, width]);
+  }, [open, showGlobe, width, panel.mounted]);
 
   const favoriteList = favoriteRows(favorites, query);
   const catalogRows =
-    mode === "search" && query.trim()
+    shownMode === "search" && query.trim()
       ? [...page.countries, ...page.stations.slice(0, shown)]
       : [];
-  const rows = mode === "favorites" ? favoriteList : catalogRows;
+  const rows = shownMode === "favorites" ? favoriteList : catalogRows;
   const more =
-    mode === "search" &&
+    shownMode === "search" &&
     shown < page.stations.length &&
     query.trim().length > 0;
   const waiting =
-    mode === "search" &&
+    shownMode === "search" &&
     query.trim() &&
     (ready === "loading" || (ready === "none" && cacheOn));
 
@@ -264,7 +304,10 @@ export function LibrarySheet({
 
   const pick = (hit) => {
     if (!hit?.station) return;
-    if (mode === "favorites" && !favoriteFits(hit.station, { httpsOnly })) {
+    if (
+      shownMode === "favorites" &&
+      !favoriteFits(hit.station, { httpsOnly })
+    ) {
       return;
     }
     onPick?.(hit.station, { force: true });
@@ -297,18 +340,20 @@ export function LibrarySheet({
     setMode((cur) => (cur ? null : next));
   };
 
-  const visible = hot || open;
+  const visible = hot || open || panel.mounted;
   const placeholder =
-    mode === "favorites" ? strings.favoriteSearch : strings.searchPh;
+    shownMode === "favorites" ? strings.favoriteSearch : strings.searchPh;
 
   let empty = null;
-  if (mode === "search" && !query.trim()) empty = strings.searchPh;
+  if (shownMode === "search" && !query.trim()) empty = strings.searchPh;
   else if (waiting) empty = strings.caching;
-  else if (mode === "search" && query.trim() && rows.length === 0) {
+  else if (shownMode === "search" && query.trim() && rows.length === 0) {
     empty = strings.noHit;
-  } else if (mode === "favorites" && !favorites?.length) {
+  } else if (shownMode === "favorites" && !favorites?.length) {
     empty = strings.favoritesEmpty;
-  } else if (mode === "favorites" && rows.length === 0) empty = strings.noHit;
+  } else if (shownMode === "favorites" && rows.length === 0) {
+    empty = strings.noHit;
+  }
 
   return (
     <div
@@ -322,11 +367,16 @@ export function LibrarySheet({
         top: 20,
         right: 20,
         zIndex: 7,
-        width: open ? span : "auto",
+        width: panel.mounted ? span : "auto",
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? "auto" : "none",
+        transition: `opacity ${FADE_MS}ms ease`,
       }}
     >
+      <style>
+        {`@keyframes library-list-in{from{opacity:0;transform:translate3d(0,4px,0)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){[data-library-panel]{transition:none !important;transform:none !important}[data-library-list]{animation:none !important}}`}
+      </style>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <IconButton
           label={strings.searchOpen}
@@ -336,9 +386,10 @@ export function LibrarySheet({
           <SearchIcon size={16} />
         </IconButton>
       </div>
-      {open && (
+      {panel.mounted && (
         <div
           ref={panelRef}
+          data-library-panel="true"
           style={{
             display: "flex",
             flexDirection: "column",
@@ -351,6 +402,8 @@ export function LibrarySheet({
             borderRadius: 12,
             border: "1px solid rgba(255,255,255,0.18)",
             background: "rgba(8,10,17,0.72)",
+            transformOrigin: "top right",
+            ...panelMotion(panel.shown),
           }}
         >
           <div
@@ -366,12 +419,12 @@ export function LibrarySheet({
           >
             <Tab
               label={strings.searchOpen}
-              selected={mode === "search"}
+              selected={shownMode === "search"}
               onClick={() => setMode("search")}
             />
             <Tab
               label={strings.favorites}
-              selected={mode === "favorites"}
+              selected={shownMode === "favorites"}
               onClick={() => setMode("favorites")}
             />
           </div>
@@ -441,7 +494,9 @@ export function LibrarySheet({
             )}
           </div>
           <div
+            key={shownMode ?? "closed"}
             ref={listRef}
+            data-library-list="true"
             onScroll={(event) => {
               if (!more) return;
               const el = event.currentTarget;
@@ -460,6 +515,7 @@ export function LibrarySheet({
               overflow: "auto",
               scrollbarWidth: "thin",
               scrollbarColor: "rgba(255,255,255,0.35) transparent",
+              animation: `library-list-in ${LIST_IN_MS}ms ${EASE_OUT} both`,
             }}
           >
             {empty ? (
@@ -596,10 +652,11 @@ function IconButton({ label, pressed, onClick, children }) {
         height: 32,
         padding: 0,
         borderRadius: 8,
-        border: pressed ? "1px solid rgba(255,255,255,0.18)" : "none",
-        background: "transparent",
+        border: `1px solid ${pressed ? "rgba(255,255,255,0.18)" : "transparent"}`,
+        background: pressed ? "rgba(6,8,14,0.92)" : "transparent",
         color: "rgba(255,255,255,0.82)",
         cursor: "pointer",
+        transition: `background ${FADE_MS}ms ease, border-color ${FADE_MS}ms ease`,
       }}
     >
       {children}
@@ -624,6 +681,7 @@ function Tab({ label, selected, onClick }) {
         font: "inherit",
         fontSize: 12,
         cursor: "pointer",
+        transition: `background ${FADE_MS}ms ease, color ${FADE_MS}ms ease`,
       }}
     >
       {label}
